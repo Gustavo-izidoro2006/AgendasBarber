@@ -166,8 +166,8 @@ export default function Onboarding() {
       } else {
         await databases.createDocument(DB_ID, COL, "unique()", { ...payload, nome: barbearia?.nome ?? "" });
       }
-    } catch {
-      // log e continua (navega de qualquer forma)
+    } catch (err) {
+      console.error("Onboarding finalizar() erro:", err);
     } finally {
       navigate("/dashboard");
     }

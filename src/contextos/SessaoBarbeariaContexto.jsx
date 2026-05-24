@@ -35,7 +35,15 @@ export function SessaoBarbeariaProvider({ children }) {
 
       // Tenta ler barbearia - se falhar, continua sem barbearia
       try {
-        const resposta = await databases.listDocuments(databaseId, COLLECTIONS.barbearias);
+        // Busca apenas a barbearia do usuário logado
+        const resposta = await databases.listDocuments(databaseId, COLLECTIONS.barbearias, [
+          // regra: toda query deve filtrar por barbearia_id, mas aqui guardamos user_id no documento
+          // então filtramos pelo user_id = usuario.$id
+          // (ajuste para field certo se necessário)
+          // filtro pelo field user_id
+          // (se o SDK estiver indisponível via require, ajustaremos para Query.equal após o próximo teste)
+          (await import("appwrite")).Query.equal("user_id", user.$id),
+        ]);
         setBarbearia(resposta?.documents?.[0] ?? null);
       } catch (err) {
         console.error("Erro ao buscar barbearia:", err);
@@ -55,6 +63,14 @@ export function SessaoBarbeariaProvider({ children }) {
     async (email, senha) => {
       setErro(null);
       try {
+        // Se já existir uma sessão ativa no navegador, Appwrite bloqueia a criação de outra.
+        // Então tentamos limpar antes.
+        try {
+          await deleteSession("current");
+        } catch {
+          // ignora se não houver sessão ativa
+        }
+
         // usar wrapper que faz fallback para diferentes versões do SDK
         await createEmailSession(email, senha);
         await carregarSessao();
@@ -95,13 +111,9 @@ export function SessaoBarbeariaProvider({ children }) {
           nomeBarbearia || undefined
         );
 
-        // Cria a sessão após cadastro para facilitar o onboarding
-        await createEmailSession(email, senha);
-
-        // O cadastro da barbearia (collection) vem na tela de onboarding (fase seguinte),
-        // então aqui só garantimos que o usuário existe.
-        await carregarSessao();
-        navigate("/dashboard/onboarding");
+        // NÃO criar sessão automaticamente no cadastro.
+        // O usuário deverá fazer login manualmente para entrar no painel.
+        navigate("/login");
         return created;
       } catch (err) {
         console.error("cadastro erro:", err);

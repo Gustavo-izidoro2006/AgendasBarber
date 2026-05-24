@@ -290,8 +290,8 @@ export default function Dashboard() {
         setClientes(cl?.documents ?? []);
         setServicosState(sv?.documents ?? []);
         setPromocoes(pr?.documents ?? []);
-      } catch {
-        // falha silenciosa; mantemos estado vazio
+      } catch (err) {
+        console.error("Dashboard carregar() erro:", err);
       }
     }
 
