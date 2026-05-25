@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Teste de Collections Appwrite</title>
+  <style>
+    body {font-family: Arial, sans-serif; background:#1e1e1e; color:#eee; padding:20px;}
+    h2 {margin-top:30px; border-bottom:1px solid #444;}
+    form {margin-top:10px; display:grid; gap:8px; max-width:400px;}
+    input, select, button {padding:6px; font-size:1rem;}
+    button {cursor:pointer; background:#2d8cf0; color:#fff; border:none;}
+    .section {margin-bottom:30px; padding:10px; border:1px solid #444; border-radius:8px;}
+    .hidden {display:none;}
+    .msg {margin:5px 0; color:#8f8;}
+  </style>
+</head>
+<body>
+
+<h1>🪒 Teste de Tables – Barbershop App</h1>
+
+<!-- ==========================================================
+     1️⃣ LOGIN
+================================================================ -->
+<div id="loginDiv">
+  <h2>Login</h2>
+  <form id="loginForm">
+    <input type="email" id="email" placeholder="E‑mail" required />
+    <input type="password" id="pwd" placeholder="Senha" required />
+    <button type="submit">Entrar</button>
+  </form>
+  <p class="msg" id="loginMsg"></p>
+</div>
+
+<!-- ==========================================================
+     2️⃣ CONTEÚDO (apenas após login)
+================================================================ -->
+<div id="appDiv" class="hidden">
+
+  <h2>Barbearia (logada)</h2>
+  <p id="barbeariaInfo">Carregando barbearia…</p>
+
+  <!-- ----------------------------------------------------------
+       3️⃣ BARBEARIA – criação (apenas para teste rápido)
+       ------------------------------------------------------- -->
+  <div class="section" id="sectionBarbearia">
+    <h3>Criar/Atualizar Barbearia</h3>
+    <form id="barbeariaForm">
+      <input type="text" id="nomeBarbearia" placeholder="Nome da barbearia" required />
+      <input type="email" id="emailBarbearia" placeholder="E‑mail da barbearia" required />
+      <button type="submit">Salvar Barbearia</button>
+    </form>
+    <p class="msg" id="barbeariaMsg"></p>
+  </div>
+
+  <!-- ----------------------------------------------------------
+       4️⃣ SERVIÇOS
+       ------------------------------------------------------- -->
+  <div class="section" id="sectionServicos">
+    <h3>Serviços</h3>
+    <form id="servicoForm">
+      <input type="text" id="nomeServico" placeholder="Nome do serviço" required />
+      <input type="text" id="valorServico" placeholder="Valor (texto)" required />
+      <input type="text" id="duracaoServico" placeholder="Duração (texto)" required />
+      <button type="submit">Criar Serviço</button>
+    </form>
+    <p class="msg" id="servicoMsg"></p>
+  </div>
+
+  <!-- ----------------------------------------------------------
+       5️⃣ HORÁRIOS DE ATENDIMENTO
+       ------------------------------------------------------- -->
+  <div class="section" id="sectionHorarios">
+    <h3>Horários de Atendimento</h3>
+    <form id="horarioForm">
+      <input type="text" id="diaSemana" placeholder="Dia da semana (ex.: segunda)" required />
+      <input type="time" id="horaInicio" required />
+      <input type="time" id="horaFim" required />
+      <input type="text" id="ativoHorario" placeholder="Ativo (texto)" required />
+      <button type="submit">Criar Horário</button>
+    </form>
+    <p class="msg" id="horarioMsg"></p>
+  </div>
+
+  <!-- ----------------------------------------------------------
+       6️⃣ CONFIGURAÇÕES
+       ------------------------------------------------------- -->
+  <div class="section" id="sectionConfigs">
+    <h3>Configurações da Barbearia</h3>
+    <form id="configForm">
+      <input type="text" id="chaveConfig" placeholder="Chave da configuração" required />
+      <input type="text" id="valorConfig" placeholder="Valor da configuração" required />
+      <button type="submit">Salvar Configuração</button>
+    </form>
+    <p class="msg" id="configMsg"></p>
+  </div>
+
+  <!-- ----------------------------------------------------------
+       7️⃣ CLIENTES (públicos)
+       ------------------------------------------------------- -->
+  <div class="section" id="sectionClientes">
+    <h3>Clientes (públicos)</h3>
+    <form id="clienteForm">
+      <input type="text" id="nomeCliente" placeholder="Nome do cliente" required />
+      <input type="text" id="telefoneCliente" placeholder="Telefone (string)" required />
+      <input type="email" id="emailCliente" placeholder="E‑mail (opcional)" />
+      <button type="submit">Criar Cliente</button>
+    </form>
+    <p class="msg" id="clienteMsg"></p>
+  </div>
+
+  <!-- ----------------------------------------------------------
+       8️⃣ AGENDAMENTOS
+       ------------------------------------------------------- -->
+  <div class="section" id="sectionAgendamentos">
+    <h3>Agendamentos</h3>
+    <form id="agendamentoForm">
+      <input type="date" id="dataAgendamento" required />
+      <input type="time" id="horarioAgendamento" required />
+      <select id="servicoSelect" required>
+        <option value="">Selecione o serviço</option>
+      </select>
+      <select id="clienteSelect" required>
+        <option value="">Selecione o cliente</option>
+      </select>
+      <button type="submit">Criar Agendamento</button>
+    </form>
+    <p class="msg" id="agendamentoMsg"></p>
+  </div>
+
+</div>
+
+<!-- ==========================================================
+     9️⃣ SDK Appwrite + Lógica JS
+================================================================ -->
+<script src="https://cdn.jsdelivr.net/npm/appwrite@11.0.0"></script>
+<script>
+/* ---------------------------------------------------------
+   Configurações – troque pelos valores do seu projeto
+---------------------------------------------------------- */
+const APPWRITE_ENDPOINT = "https://sfo.cloud.appwrite.io/v1";
+const APPWRITE_PROJECT  = "6a0ddc980020842b9012";
+const APPWRITE_DB_ID = "6a0e2cf0003c9096f6fe";
+
+/* ---------------------------------------------------------
+   Instancia o SDK
+---------------------------------------------------------- */
+const sdk = new Appwrite.Client()
+  .setEndpoint(APPWRITE_ENDPOINT)
+.setProject(APPWRITE_PROJECT);
+
+
+
+const account   = new Appwrite.Account(sdk);
+const databases = new Appwrite.Databases(sdk);
+const ID        = Appwrite.ID;
+const Query     = Appwrite.Query;
+
+/* ---------------------------------------------------------
+   Collections – nomes exatamente como estão no seu Appwrite
+---------------------------------------------------------- */
+const COL = {
+  barbearias: "barbearias",
+  servicos:   "servicos",
+  horarios:   "horarios_atendimento",
+  configs:    "configuracoes_barbearia",
+  clientes:   "clientes",
+  agendamentos: "agendamentos"
+};
+
+/* ---------------------------------------------------------
+   Elementos da UI
+---------------------------------------------------------- */
+const loginDiv   = document.getElementById("loginDiv");
+const appDiv     = document.getElementById("appDiv");
+const loginForm  = document.getElementById("loginForm");
+const loginMsg   = document.getElementById("loginMsg");
+const barbeariaInfo = document.getElementById("barbeariaInfo");
+
+/* ======== 1️⃣ LOGIN ==================================================== */
+loginForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  loginMsg.textContent = "";
+  const email = document.getElementById("email").value;
+  const pwd   = document.getElementById("pwd").value;
+  try {
+    await account.createEmailSession(email, pwd);
+    loginMsg.textContent = "✅ Login OK – carregando barbearia...";
+    await carregarBarbearia();
+    loginDiv.classList.add("hidden");
+    appDiv.classList.remove("hidden");
+  } catch (err) {
+    console.error(err);
+    loginMsg.textContent = "❌ Erro: " + (err.message || err);
+  }
+});
+
+/* ======== 2️⃣ BUSCAR BARBEARIA LOGADA ================================ */
+let barbearia = null;           // guardamos o documento da barbearia
+async function carregarBarbearia() {
+  try {
+    const user = await account.get();               // verifica a sessão
+    const resp = await databases.listDocuments(
+      APPWRITE_DB_ID,
+      COL.barbearias,
+      [ Query.equal("user_id", user.$id), Query.limit(1) ]
+    );
+    barbearia = resp.documents[0] || null;
+    if (barbearia) {
+      barbeariaInfo.innerHTML = `
+        <strong>${barbearia.nome}</strong><br>
+        slug: ${barbearia.slug}<br>
+        id: ${barbearia.$id}
+      `;
+      await atualizarSelects();
+    } else {
+      barbeariaInfo.textContent = "Barbearia não encontrada – crie uma na seção abaixo.";
+    }
+  } catch (err) {
+    console.error(err);
+    barbeariaInfo.textContent = "Erro ao buscar barbearia.";
+  }
+}
+
+/* ======== 3️⃣ BARBEARIA (criar/atualizar) =========================== */
+document.getElementById("barbeariaForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const nome = document.getElementById("nomeBarbearia").value;
+  const email = document.getElementById("emailBarbearia").value;
+  const msg   = document.getElementById("barbeariaMsg");
+  msg.textContent = "";
+
+  try {
+    if (barbearia) {
+      const updated = await databases.updateDocument(
+        APPWRITE_DB_ID,
+        COL.barbearias,
+        barbearia.$id,
+        { nome, email }
+      );
+      barbearia = updated;
+      msg.textContent = "✅ Barbearia atualizada.";
+    } else {
+      const user = await account.get();
+      const slug = nome.toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "") + "-" + user.$id.substring(0,6);
+      const doc = await databases.createDocument(
+        APPWRITE_DB_ID,
+        COL.barbearias,
+        ID.unique(),
+        { nome, email, slug, user_id: user.$id }
+      );
+      barbearia = doc;
+      msg.textContent = "✅ Barbearia criada.";
+    }
+    barbeariaInfo.innerHTML = `
+      <strong>${barbearia.nome}</strong><br>
+      slug: ${barbearia.slug}<br>
+      id: ${barbearia.$id}
+    `;
+    await atualizarSelects();
+  } catch (err) {
+    console.error(err);
+    msg.textContent = "❌ Erro: " + (err.message || err);
+  }
+});
+
+/* ======== 4️⃣ SERVIÇOS =============================================== */
+document.getElementById("servicoForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const nome   = document.getElementById("nomeServico").value;
+  const valor  = document.getElementById("valorServico").value;
+  const dur    = document.getElementById("duracaoServico").value;
+  const msg    = document.getElementById("servicoMsg");
+  msg.textContent = "";
+  if (!barbearia) return msg.textContent = "Barbearia ainda não está carregada.";
+
+  try {
+    await databases.createDocument(
+      APPWRITE_DB_ID,
+      COL.servicos,
+      ID.unique(),
+      { nome, valor: String(valor), duracao: String(dur), barbearia_id: barbearia.$id }
+    );
+    msg.textContent = "✅ Serviço criado.";
+    await atualizarSelects();
+  } catch (err) {
+    console.error(err);
+    msg.textContent = "❌ Erro: " + (err.message || err);
+  }
+});
+
+/* ======== 5️⃣ HORÁRIOS =============================================== */
+document.getElementById("horarioForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const dia    = document.getElementById("diaSemana").value;
+  const ini    = document.getElementById("horaInicio").value;
+  const fim    = document.getElementById("horaFim").value;
+  const ativo  = document.getElementById("ativoHorario").value;
+  const msg    = document.getElementById("horarioMsg");
+  msg.textContent = "";
+  if (!barbearia) return msg.textContent = "Barbearia ainda não está carregada.";
+
+  try {
+    await databases.createDocument(
+      APPWRITE_DB_ID,
+      COL.horarios,
+      ID.unique(),
+      { diaSemana: dia, horaInicio: ini, horaFim: fim, ativo: String(ativo), barbearia_id: barbearia.$id }
+    );
+    msg.textContent = "✅ Horário criado.";
+  } catch (err) {
+    console.error(err);
+    msg.textContent = "❌ Erro: " + (err.message || err);
+  }
+});
+
+/* ======== 6️⃣ CONFIGURAÇÕES ========================================= */
+document.getElementById("configForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const chave = document.getElementById("chaveConfig").value;
+  const valor = document.getElementById("valorConfig").value;
+  const msg   = document.getElementById("configMsg");
+  msg.textContent = "";
+  if (!barbearia) return msg.textContent = "Barbearia ainda não está carregada.";
+
+  try {
+    await databases.createDocument(
+      APPWRITE_DB_ID,
+      COL.configs,
+      ID.unique(),
+      { chave, valor, barbearia_id: barbearia.$id }
+    );
+    msg.textContent = "✅ Configuração salva.";
+  } catch (err) {
+    console.error(err);
+    msg.textContent = "❌ Erro: " + (err.message || err);
+  }
+});
+
+/* ======== 7️⃣ CLIENTES (públicos) ==================================== */
+document.getElementById("clienteForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const nome = document.getElementById("nomeCliente").value;
+  const tel  = document.getElementById("telefoneCliente").value;
+  const mail = document.getElementById("emailCliente").value;
+  const msg  = document.getElementById("clienteMsg");
+  msg.textContent = "";
+  if (!barbearia) return msg.textContent = "Barbearia ainda não está carregada.";
+
+  try {
+    const created = await databases.createDocument(
+      APPWRITE_DB_ID,
+      COL.clientes,
+      ID.unique(),
+      { nome, telefone: String(tel), email: mail, barbearia_id: barbearia.$id }
+    );
+    msg.textContent = "✅ Cliente criado (id: " + created.$id + ").";
+    await atualizarSelects();
+  } catch (err) {
+    console.error(err);
+    msg.textContent = "❌ Erro: " + (err.message || err);
+  }
+});
+
+/* ======== 8️⃣ AGENDAMENTOS =========================================== */
+document.getElementById("agendamentoForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const data   = document.getElementById("dataAgendamento").value;
+  const hora   = document.getElementById("horarioAgendamento").value;
+  const servId = document.getElementById("servicoSelect").value;
+  const cliId  = document.getElementById("clienteSelect").value;
+  const msg    = document.getElementById("agendamentoMsg");
+  msg.textContent = "";
+  if (!barbearia) return msg.textContent = "Barbearia ainda não está carregada.";
+  if (!servId || !cliId) return msg.textContent = "Selecione serviço e cliente.";
+
+  try {
+    await databases.createDocument(
+      APPWRITE_DB_ID,
+      COL.agendamentos,
+      ID.unique(),
+      {
+        data,
+        horario: hora,
+        servico_id: servId,
+        cliente_id: cliId,
+        barbearia_id: barbearia.$id,
+        status: "pendente"
+      }
+    );
+    msg.textContent = "✅ Agendamento criado.";
+  } catch (err) {
+    console.error(err);
+    msg.textContent = "�� Erro: " + (err.message || err);
+  }
+});
+
+/* ---------------------------------------------------------
+   Atualiza os <select> de Serviços e Clientes (usados no agendamento)
+---------------------------------------------------------- */
+async function atualizarSelects() {
+  if (!barbearia) return;
+  // Serviços
+  const srvSel = document.getElementById("servicoSelect");
+  srvSel.innerHTML = `<option value="">Selecione o serviço</option>`;
+  const svResp = await databases.listDocuments(
+    APPWRITE_DB_ID,
+    COL.servicos,
+    [ Query.equal("barbearia_id", barbearia.$id) ]
+  );
+  svResp.documents.forEach(s => {
+    const opt = document.createElement("option");
+    opt.value = s.$id;
+    opt.textContent = `${s.nome} – ${s.valor}`;
+    srvSel.appendChild(opt);
+  });
+
+  // Clientes
+  const cliSel = document.getElementById("clienteSelect");
+  cliSel.innerHTML = `<option value="">Selecione o cliente</option>`;
+  const clResp = await databases.listDocuments(
+    APPWRITE_DB_ID,
+    COL.clientes,
+    [ Query.equal("barbearia_id", barbearia.$id) ]
+  );
+  clResp.documents.forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c.$id;
+    opt.textContent = `${c.nome} – ${c.telefone}`;
+    cliSel.appendChild(opt);
+  });
+}
+
+/* ---------------------------------------------------------
+   Caso a página seja recarregada e já exista sessão válida,
+   carregamos a barbearia automaticamente.
+---------------------------------------------------------- */
+(async () => {
+  try {
+    const sess = await account.get(); // lança 401 se não houver sessão
+    loginDiv.classList.add("hidden");
+    appDiv.classList.remove("hidden");
+    await carregarBarbearia();
+  } catch (_) {
+    // sem sessão – nada a fazer, o usuário deve fazer login
+  }
+})();
+</script>
+
+</body>
+</html>
