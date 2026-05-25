@@ -1,7 +1,11 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSessaoBarbearia } from "../contextos/SessaoBarbeariaContexto";
-import { databases, COLLECTIONS, DB_ID } from "../lib/appwrite";
+import { account, databases, COLLECTIONS, DB_ID, Query } from "../lib/appwrite";
+import {
+  criarServico,
+} from "../services/servicosService";
+
 
 function Progresso({ etapaAtual, total }) {
   const percent = Math.round((etapaAtual / total) * 100);
@@ -134,14 +138,10 @@ export default function Onboarding() {
   const [promocoes, setPromocoes] = useState({ habilitada: false, tipo: "percentual", valor: 0 });
   const [descricao, setDescricao] = useState("");
 
-  useEffect(() => {
-    if (!barbearia) return;
-    setHorarios(barbearia.horarios ?? {});
-    setServicos(barbearia.servicos ?? []);
-    setPrecos(barbearia.precos ?? {});
-    setPromocoes(barbearia.promocoes ?? { habilitada: false, tipo: "percentual", valor: 0 });
-    setDescricao(barbearia.descricao ?? "");
-  }, [barbearia]);
+  // We remove this effect because the barbearia document (from clientes collection) does not contain
+  // horarios, servicos, precos, promocoes, descricao. These are stored in separate collections.
+  // Instead, we will load existing data from those collections when editing (if needed) in a separate step.
+  // For initial onboarding, we start with empty/default state.
 
   const total = etapas.length;
   const etapaAtual = etapaIndex + 1;
@@ -156,15 +156,64 @@ export default function Onboarding() {
   }
 
   async function finalizar() {
-    // Persiste dados de onboarding na collection de barbearias
     try {
-      const COL = COLLECTIONS.barbearias;
-      const payload = { horarios, servicos, precos, promocoes, descricao };
+      const barbeariaId = barbearia?.$id ?? barbearia?.id;
+      if (!barbeariaId) throw new Error("Barbearia não carregada na sessão.");
 
-      if (barbearia?.$id || barbearia?.id) {
-        await databases.updateDocument(DB_ID, COL, barbearia.$id ?? barbearia.id, payload);
+      // 1) horários_atendimento (persistência por barbearia_id)
+      // Upsert: tenta localizar 1 doc existente; se não houver, cria.
+      const horariosDocs = await databases.listDocuments(DB_ID, COLLECTIONS.horarios, [
+        Query.equal("barbearia_id", barbeariaId),
+        Query.limit(1),
+      ]);
+      const horariosDoc = horariosDocs?.documents?.[0] ?? null;
+      const horariosPayload = {
+        ...horarios,
+        barbearia_id: String(barbeariaId),
+      };
+
+      if (horariosDoc?.$id) {
+        await databases.updateDocument(DB_ID, COLLECTIONS.horarios, horariosDoc.$id, horariosPayload);
       } else {
-        await databases.createDocument(DB_ID, COL, "unique()", { ...payload, nome: barbearia?.nome ?? "" });
+        await databases.createDocument(DB_ID, COLLECTIONS.horarios, "unique()", horariosPayload);
+      }
+
+      // 2) configuracoes_barbearia (persistência por barbearia_id)
+      const configDocs = await databases.listDocuments(DB_ID, COLLECTIONS.configuracoes, [
+        Query.equal("barbearia_id", barbeariaId),
+        Query.limit(1),
+      ]);
+      const configDoc = configDocs?.documents?.[0] ?? null;
+
+      const configuracoesPayload = {
+        barbearia_id: String(barbeariaId),
+        promocoes,
+        descricao,
+      };
+
+      if (configDoc?.$id) {
+        await databases.updateDocument(DB_ID, COLLECTIONS.configuracoes, configDoc.$id, configuracoesPayload);
+      } else {
+        await databases.createDocument(DB_ID, COLLECTIONS.configuracoes, "unique()", configuracoesPayload);
+      }
+
+      // 3) servicos (CRUD: garantir persistência real com barbearia_id)
+      // Onboarding hoje armazena duracaoMin e preços por id local; convertemos para campos do schema.
+      // Sem recriar “arquitetura” e sem alterar o dashboard: usamos criarServico por item.
+      // Observação: sem conhecer ids reais existentes, criamos documentações novas para cada item do onboarding.
+      // Se desejar limpeza antes, isso exigiria query/remoção; evitamos para não impactar dados já corrigidos.
+      for (const srv of servicos) {
+        const duracao = srv.duracaoMin ?? srv.duracao;
+        const valor = precos?.[srv.id] ?? srv.valor;
+
+        await criarServico({
+          nome: srv.nome,
+          descricao: "",
+          valor: valor === "" || valor == null ? 0 : String(valor),
+          duracao: String(duracao),
+          status: "ativo",
+          barbearia_id: String(barbeariaId),
+        });
       }
     } catch (err) {
       console.error("Onboarding finalizar() erro:", err);
@@ -172,6 +221,7 @@ export default function Onboarding() {
       navigate("/dashboard");
     }
   }
+
 
   return (
     <main style={{ padding: 24, color: "white", minHeight: "100vh" }}>

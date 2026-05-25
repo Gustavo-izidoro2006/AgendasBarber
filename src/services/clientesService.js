@@ -1,4 +1,5 @@
-import { listCollection, getDocument, createCollectionDocument, updateCollectionDocument, deleteCollectionDocument } from "../lib/appwrite";
+import { Query } from "appwrite";
+import { listCollection, getDocument, createDocument, updateDocument, deleteDocument } from "../lib/appwrite";
 
 function obrigatorio(valor, nome) {
   if (valor === undefined || valor === null || valor === "") {
@@ -6,11 +7,17 @@ function obrigatorio(valor, nome) {
   }
 }
 
+/**
+ * Lista todos os clientes de uma barbearia
+ * @param {string} barbeariaId - O ID da barbearia
+ * @param {Array} queries - Queries adicionais do Appwrite (opcional)
+ * @returns {Promise<Array<Object>>} Lista de clientes
+ */
 export async function listarClientes(barbeariaId, queries = []) {
   obrigatorio(barbeariaId, "barbeariaId");
 
   const queriesComFiltro = [
-    `equal(barbearia_id,"${barbeariaId}")`,
+    Query.equal("barbearia_id", barbeariaId),
     ...queries,
   ];
 
@@ -18,6 +25,11 @@ export async function listarClientes(barbeariaId, queries = []) {
   return resp?.documents ?? [];
 }
 
+/**
+ * Busca um cliente pelo ID
+ * @param {string} clienteId - O ID do cliente
+ * @returns {Promise<Object|null>} O cliente encontrado ou null
+ */
 export async function buscarClientePorId(clienteId) {
   obrigatorio(clienteId, "clienteId");
   try {
@@ -29,6 +41,32 @@ export async function buscarClientePorId(clienteId) {
   }
 }
 
+/**
+ * Cria um novo cliente para uma barbearia
+ * @param {Object} params - Os dados do cliente
+ * @returns {Promise<Object>} O cliente criado
+ */
+/**
+ * Busca um cliente existente por barbearia + telefone (PASSO 1 do onboarding público)
+ * Se o schema não tiver telefone indexado/único, ainda assim usamos o filtro.
+ */
+export async function buscarClientePorBarbeariaTelefone({ barbeariaId, telefone }) {
+  obrigatorio(barbeariaId, "barbeariaId");
+  obrigatorio(telefone, "telefone");
+
+  const resp = await listCollection("clientes", [
+    Query.equal("barbearia_id", barbeariaId),
+    Query.equal("telefone", String(telefone).trim()),
+  ]);
+
+  return resp?.documents?.[0] ?? null;
+}
+
+/**
+ * Cria um novo cliente para uma barbearia
+ * @param {Object} params - Os dados do cliente
+ * @returns {Promise<Object>} O cliente criado
+ */
 export async function criarCliente({ barbearia_id, nome, telefone, email, observacoes }) {
   obrigatorio(barbearia_id, "barbearia_id");
   obrigatorio(nome, "nome");
@@ -43,7 +81,7 @@ export async function criarCliente({ barbearia_id, nome, telefone, email, observ
       criado_em: new Date().toISOString(),
     };
 
-    const created = await createCollectionDocument("clientes", payload);
+    const created = await createDocument("clientes", "unique()", payload);
     return created;
   } catch (err) {
     console.error("Erro ao criar cliente:", err);
@@ -51,6 +89,13 @@ export async function criarCliente({ barbearia_id, nome, telefone, email, observ
   }
 }
 
+
+/**
+ * Atualiza um cliente existente
+ * @param {string} clienteId - O ID do cliente
+ * @param {Object} updates - Os dados atualizados do cliente
+ * @returns {Promise<Object>} O cliente atualizado
+ */
 export async function atualizarCliente(clienteId, { nome, telefone, email, observacoes }) {
   obrigatorio(clienteId, "clienteId");
   try {
@@ -60,7 +105,7 @@ export async function atualizarCliente(clienteId, { nome, telefone, email, obser
     if (email !== undefined) payload.email = email ? String(email).trim() : null;
     if (observacoes !== undefined) payload.observacoes = observacoes;
 
-    const updated = await updateCollectionDocument("clientes", clienteId, payload);
+    const updated = await updateDocument("clientes", clienteId, payload);
     return updated;
   } catch (err) {
     console.error("Erro ao atualizar cliente:", err);
@@ -68,10 +113,15 @@ export async function atualizarCliente(clienteId, { nome, telefone, email, obser
   }
 }
 
+/**
+ * Remove um cliente
+ * @param {string} clienteId - O ID do cliente
+ * @returns {Promise<void>}
+ */
 export async function removerCliente(clienteId) {
   obrigatorio(clienteId, "clienteId");
   try {
-    await deleteCollectionDocument("clientes", clienteId);
+    await deleteDocument("clientes", clienteId);
   } catch (err) {
     console.error("Erro ao remover cliente:", err);
     throw new Error("Falha ao remover cliente. Tente novamente.");

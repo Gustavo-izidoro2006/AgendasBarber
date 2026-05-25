@@ -1,4 +1,5 @@
-import { listCollection, createCollectionDocument } from "../lib/appwrite";
+import { Query } from "appwrite";
+import { listCollection, createDocument } from "../lib/appwrite";
 
 function obrigatorio(valor, nome) {
   if (valor === undefined || valor === null || valor === "") {
@@ -10,8 +11,8 @@ export async function buscarBarbeariaPorSlug(slug) {
   obrigatorio(slug, "slug");
 
   const docs = await listCollection("barbearias", [
-    `equal(slug,"${slug}")`,
-    `equal(status,"ativo")`,
+    Query.equal("slug", slug),
+    Query.equal("status", "ativo"),
   ]);
 
   return docs?.documents?.[0] ?? null;
@@ -21,7 +22,7 @@ export async function buscarServicosDaBarbearia(barbeariaId) {
   obrigatorio(barbeariaId, "barbeariaId");
 
   const resp = await listCollection("servicos", [
-    `equal(barbearia_id,"${barbeariaId}")`,
+    Query.equal("barbearia_id", barbeariaId),
   ]);
 
   return resp?.documents ?? [];
@@ -51,7 +52,7 @@ export async function criarAgendamento({
     criado_em: new Date().toISOString(),
   };
 
-  const created = await createCollectionDocument("agendamentos", payload);
+  const created = await createDocument("agendamentos", "unique()", payload);
 
   return created;
 }

@@ -32,8 +32,8 @@ export default function FormServico({
       setFormData({
         nome: servico.nome || "",
         descricao: servico.descricao || "",
-        valor: servico.valor || "",
-        duracao: servico.duracao || "",
+        valor: String(servico.valor || ""),
+        duracao: String(servico.duracao || ""),
         status: servico.status || "ativo",
       });
     } else {
@@ -76,8 +76,8 @@ export default function FormServico({
       novosErros.descricao = "Descrição é obrigatória";
     }
 
-    if (!formData.valor || Number(formData.valor) <= 0) {
-      novosErros.valor = "Valor deve ser maior que zero";
+    if (!formData.valor || Number(formData.valor) < 0) {
+      novosErros.valor = "Valor não pode ser vazio";
     }
 
     if (!formData.duracao || Number(formData.duracao) <= 0) {
@@ -98,8 +98,7 @@ export default function FormServico({
     const dadosParaSalvar = {
       ...formData,
       barbearia_id: barbeariaId,
-      valor: Number(formData.valor),
-      duracao: Number(formData.duracao),
+      // Mantém como string já que o banco armazena como text
     };
 
     onSalvar(dadosParaSalvar);

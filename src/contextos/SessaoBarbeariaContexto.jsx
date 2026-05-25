@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { account, databases, COLLECTIONS, createEmailSession, deleteSession } from "../lib/appwrite";
+import { account, databases, COLLECTIONS, createEmailSession, deleteSession, Query, DB_ID, createDocument } from "../lib/appwrite";
 import { useNavigate } from "react-router-dom";
 
 const SessaoBarbeariaContexto = createContext(null);
@@ -26,32 +26,30 @@ export function SessaoBarbeariaProvider({ children }) {
       const user = await account.get();
       setUsuario(user);
 
-      const databaseId = import.meta.env.VITE_APPWRITE_DB_ID;
-      if (!databaseId) {
+      if (!DB_ID) {
         setBarbearia(null);
         setCarregando(false);
-        return;
+        return null;
       }
 
-      // Tenta ler barbearia - se falhar, continua sem barbearia
+      // Busca a barbearia do usuário logado na collection "clientes" (que armazena barbearias)
       try {
-        // Busca apenas a barbearia do usuário logado
-        const resposta = await databases.listDocuments(databaseId, COLLECTIONS.barbearias, [
-          // regra: toda query deve filtrar por barbearia_id, mas aqui guardamos user_id no documento
-          // então filtramos pelo user_id = usuario.$id
-          // (ajuste para field certo se necessário)
-          // filtro pelo field user_id
-          // (se o SDK estiver indisponível via require, ajustaremos para Query.equal após o próximo teste)
-          (await import("appwrite")).Query.equal("user_id", user.$id),
+        const resposta = await databases.listDocuments(DB_ID, COLLECTIONS.barbearias, [
+          Query.equal("user_id", user.$id),
+          Query.limit(1),
         ]);
-        setBarbearia(resposta?.documents?.[0] ?? null);
+        const barbeariaDoUsuario = resposta?.documents?.[0] ?? null;
+        setBarbearia(barbeariaDoUsuario);
+        return barbeariaDoUsuario;
       } catch (err) {
         console.error("Erro ao buscar barbearia:", err);
         setBarbearia(null);
+        return null;
       }
     } catch (err) {
-      // Usuário não autenticado ou erro na chamada
-      console.error("carregarSessao erro:", err);
+      // Usuário não autenticado ou erro na chamada (esperado quando não logged in)
+      // Não mostra erro para o usuário, apenas reseta estado
+      console.debug("Sessão não autenticada:", err?.message);
       setUsuario(null);
       setBarbearia(null);
     } finally {
@@ -63,19 +61,22 @@ export function SessaoBarbeariaProvider({ children }) {
     async (email, senha) => {
       setErro(null);
       try {
-        // Se já existir uma sessão ativa no navegador, Appwrite bloqueia a criação de outra.
-        // Então tentamos limpar antes.
+        // Limpa sessão existente antes de criar nova
         try {
           await deleteSession("current");
         } catch {
           // ignora se não houver sessão ativa
         }
 
-        // usar wrapper que faz fallback para diferentes versões do SDK
         await createEmailSession(email, senha);
-        await carregarSessao();
-        // Após o primeiro login, direciona para onboarding inicial
-        navigate("/dashboard/onboarding");
+        const barbeariaAtiva = await carregarSessao();
+
+        // Verifica se a barbearia já está configurada
+        if (barbeariaAtiva) {
+          navigate("/dashboard");
+        } else {
+          navigate("/dashboard/onboarding");
+        }
       } catch (err) {
         console.error("login erro:", err);
         setErro(err);
@@ -101,9 +102,9 @@ export function SessaoBarbeariaProvider({ children }) {
 
   const cadastro = useCallback(
     async ({ email, senha, nomeBarbearia }) => {
-      // Conta/usuário via Appwrite Auth
       setErro(null);
       try {
+        // Cria usuário no Appwrite Auth
         const created = await account.create(
           "unique()",
           email,
@@ -111,8 +112,25 @@ export function SessaoBarbeariaProvider({ children }) {
           nomeBarbearia || undefined
         );
 
-        // NÃO criar sessão automaticamente no cadastro.
-        // O usuário deverá fazer login manualmente para entrar no painel.
+        // Cria o documento da barbearia na collection "clientes"
+        if (DB_ID && nomeBarbearia) {
+          try {
+            const slug = nomeBarbearia.toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/(^-|-$)/g, '') + '-' + created.$id.substring(0, 6);
+
+            await createDocument("barbearias", "unique()", {
+              nome: nomeBarbearia,
+              slug: slug,
+              email: email,
+              user_id: created.$id,
+            });
+          } catch (err) {
+            console.error("Erro ao criar documento da barbearia:", err);
+          }
+        }
+
+        // Redireciona para login após cadastro
         navigate("/login");
         return created;
       } catch (err) {
@@ -121,8 +139,29 @@ export function SessaoBarbeariaProvider({ children }) {
         throw err;
       }
     },
-    [carregarSessao, navigate]
+    []
   );
+
+  // Função para atualizar a barbearia após onboarding
+  const atualizarBarbearia = useCallback(async (dados) => {
+    if (!barbearia?.$id) {
+      throw new Error("Barbearia não encontrada");
+    }
+
+    try {
+      const response = await databases.updateDocument(
+        DB_ID,
+        COLLECTIONS.barbearias,
+        barbearia.$id,
+        dados
+      );
+      setBarbearia(response);
+      return response;
+    } catch (err) {
+      console.error("Erro ao atualizar barbearia:", err);
+      throw err;
+    }
+  }, [barbearia]);
 
   useEffect(() => {
     carregarSessao();
@@ -137,9 +176,10 @@ export function SessaoBarbeariaProvider({ children }) {
       login,
       logout,
       cadastro,
+      atualizarBarbearia,
       recarregarSessao: carregarSessao,
     }),
-    [usuario, barbearia, carregando, erro, login, logout, cadastro, carregarSessao]
+    [usuario, barbearia, carregando, erro, login, logout, cadastro, atualizarBarbearia, carregarSessao]
   );
 
   return <SessaoBarbeariaContexto.Provider value={valor}>{children}</SessaoBarbeariaContexto.Provider>;

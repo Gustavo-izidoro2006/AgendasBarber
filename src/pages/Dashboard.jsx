@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { useSessaoBarbearia } from "../contextos/SessaoBarbeariaContexto";
-import { databases, COLLECTIONS, DB_ID } from "../lib/appwrite";
+import { account, databases, COLLECTIONS, DB_ID, Query } from "../lib/appwrite";
 
 function formatarDataISOParaPT(dataISO) {
   // dataISO: YYYY-MM-DD
@@ -260,7 +260,8 @@ function Calendario({
 }
 
 export default function Dashboard() {
-  const { usuario, barbearia, logout } = useSessaoBarbearia();
+  const { usuario, logout } = useSessaoBarbearia();
+  const [barbearia, setBarbearia] = useState(null);
   const [aba, setAba] = useState("estatisticas");
 
   // Dados carregados do Appwrite
@@ -272,24 +273,56 @@ export default function Dashboard() {
   useEffect(() => {
     let mounted = true;
     async function carregar() {
+      // load barbearia if not already loaded
+      if (!barbearia) {
+        try {
+          const user = await account.get();
+          const barbeariaDocs = await databases.listDocuments(
+            DB_ID,
+            COLLECTIONS.barbearias,
+            [Query.equal("user_id", user.$id)]
+          );
+          const barbeariaDoc = barbeariaDocs?.documents?.[0];
+          if (!barbeariaDoc) throw new Error("Barbearia não encontrada para o usuário");
+          if (!mounted) return;
+          setBarbearia(barbeariaDoc);
+        } catch (err) {
+          console.error("Erro ao buscar barbearia:", err);
+          setBarbearia(null);
+          return;
+        }
+      }
+
+      if (!barbearia?.$id) {
+        setAgendamentos([]);
+        setClientes([]);
+        setServicosState([]);
+        setPromocoes([]);
+        return;
+      }
+
       try {
+        const barbeariaId = barbearia.$id;
         const COL_AGEND = COLLECTIONS.agendamentos;
         const COL_CLIENTES = COLLECTIONS.clientes;
         const COL_SERVICOS = COLLECTIONS.servicos;
-        const COL_PROMO = COLLECTIONS.promocoes;
 
-        const [ag, cl, sv, pr] = await Promise.all([
-          DB_ID && COL_AGEND ? databases.listDocuments(DB_ID, COL_AGEND) : Promise.resolve(null),
-          DB_ID && COL_CLIENTES ? databases.listDocuments(DB_ID, COL_CLIENTES) : Promise.resolve(null),
-          DB_ID && COL_SERVICOS ? databases.listDocuments(DB_ID, COL_SERVICOS) : Promise.resolve(null),
-          DB_ID && COL_PROMO ? databases.listDocuments(DB_ID, COL_PROMO) : Promise.resolve(null),
+        const [ag, cl, sv] = await Promise.all([
+          DB_ID && COL_AGEND
+            ? databases.listDocuments(DB_ID, COL_AGEND, [Query.equal("barbearia_id", barbeariaId)])
+            : Promise.resolve(null),
+          DB_ID && COL_CLIENTES
+            ? databases.listDocuments(DB_ID, COL_CLIENTES, [Query.equal("barbearia_id", barbeariaId)])
+            : Promise.resolve(null),
+          DB_ID && COL_SERVICOS
+            ? databases.listDocuments(DB_ID, COL_SERVICOS, [Query.equal("barbearia_id", barbeariaId)])
+            : Promise.resolve(null),
         ]);
 
         if (!mounted) return;
         setAgendamentos(ag?.documents ?? []);
         setClientes(cl?.documents ?? []);
         setServicosState(sv?.documents ?? []);
-        setPromocoes(pr?.documents ?? []);
       } catch (err) {
         console.error("Dashboard carregar() erro:", err);
       }
@@ -299,7 +332,7 @@ export default function Dashboard() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [barbearia]);
 
   const [modalDia, setModalDia] = useState({ aberto: false, data: null });
   const agendamentosDoDia = useMemo(() => {

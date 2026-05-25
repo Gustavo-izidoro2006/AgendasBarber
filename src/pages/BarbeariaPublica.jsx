@@ -5,7 +5,11 @@ import {
   buscarServicosDaBarbearia,
   criarAgendamento,
 } from "../services/barbeariaPublicaService";
-import { criarCliente } from "../services/clientesService";
+import {
+  buscarClientePorBarbeariaTelefone,
+  criarCliente,
+} from "../services/clientesService";
+
 
 function formatarDataISOParaPT(dataISO) {
   const [y, m, d] = dataISO.split("-").map((x) => Number(x));
@@ -51,9 +55,9 @@ export default function BarbeariaPublica() {
     return servicos.find((s) => s.$id === servicoId || s.id === servicoId) ?? null;
   }, [servicos, servicoId]);
 
-  const duracaoMin = selecionadoServico?.duracaoMin ?? selecionadoServico?.duracao ?? null;
+  const duracaoMin = selecionadoServico?.duracao ? Number(selecionadoServico.duracao) : null;
   const servicoNome = selecionadoServico?.nome ?? selecionadoServico?.titulo ?? "";
-  const preco = selecionadoServico?.preco ?? null;
+  const preco = selecionadoServico?.valor ?? null;
 
   const [clienteNome, setClienteNome] = useState("");
   const [clienteTelefone, setClienteTelefone] = useState("");
@@ -130,29 +134,42 @@ export default function BarbeariaPublica() {
 
       const horarioFim = formatHora(fim);
 
-      // cria cliente localmente na collection `clientes_barbearia` e vincula ao agendamento
+      // PASSO 1 + PASSO 2: verificar se cliente já existe na collection `clientes`
+      const telefoneTrim = clienteTelefone.trim();
+      const nomeTrim = clienteNome.trim();
+
       let clienteDoc = null;
       try {
+        clienteDoc = await buscarClientePorBarbeariaTelefone({
+          barbeariaId,
+          telefone: telefoneTrim,
+        });
+      } catch (err) {
+        console.warn("Falha ao buscar cliente existente:", err);
+      }
+
+      if (!clienteDoc) {
+        // PASSO 3: criar cliente se não existir
         clienteDoc = await criarCliente({
           barbearia_id: barbeariaId,
-          nome: clienteNome.trim(),
-          telefone: clienteTelefone.trim(),
+          nome: nomeTrim,
+          telefone: telefoneTrim,
           email: null,
           observacoes: null,
         });
-      } catch (err) {
-        // se falhar, continuamos com cliente_id null e colocamos nome/telefone em observacoes
-        console.warn("Falha ao criar cliente automático:", err);
       }
 
+      // Cria agendamento em `agendamentos`
       const criado = await criarAgendamento({
         barbearia_id: barbeariaId,
         cliente_id: clienteDoc?.$id ?? clienteDoc?.id ?? null,
         servico_id: selecionadoServico.$id ?? selecionadoServico.id,
         data_agendamento: data,
         horario: horario,
-        observacoes: clienteDoc ? null : `Nome: ${clienteNome.trim()} • Telefone: ${clienteTelefone.trim()}`,
+        status: "ativo",
+        observacoes: null,
       });
+
 
       setConfirmado(criado);
     } catch (e) {
@@ -250,11 +267,11 @@ export default function BarbeariaPublica() {
                         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
                           <div style={{ fontWeight: 1000 }}>{s.nome ?? s.titulo}</div>
                           <div style={{ fontWeight: 1000, color: "rgba(255,255,255,0.95)" }}>
-                            {s.preco != null ? `R$ ${s.preco}` : "—"}
+                            {s.valor != null ? `R$ ${s.valor}` : "—"}
                           </div>
                         </div>
                         <div style={{ marginTop: 6, fontSize: 13, color: "rgba(255,255,255,0.75)" }}>
-                          Duração: {s.duracaoMin ?? s.duracao ?? "—"} min
+                          Duração: {s.duracao ?? "—"} min
                         </div>
                       </button>
                     );

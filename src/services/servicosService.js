@@ -1,10 +1,5 @@
-import {
-  listCollection,
-  getDocument,
-  createCollectionDocument,
-  updateCollectionDocument,
-  deleteCollectionDocument,
-} from "../lib/appwrite";
+import { Query } from "appwrite";
+import { listCollection, getDocument, createDocument, updateDocument, deleteDocument, DB_ID, COLLECTIONS } from "../lib/appwrite";
 
 /**
  * Valida se um valor é obrigatório
@@ -26,39 +21,44 @@ function obrigatorio(valor, nome) {
  */
 function validarDadosServico(dados, isInclusiveBarbeariaId = true) {
   obrigatorio(dados.nome, "nome");
-  obrigatorio(dados.descricao, "descricao");
-  obrigatorio(dados.valor, "valor");
-  obrigatorio(dados.duracao, "duracao");
-  obrigatorio(dados.status, "status");
+  
+  // descricao, valor, duracao sao opcionais mas se presentes devem ser validos
+  if (dados.descricao !== undefined && dados.descricao !== null) {
+    obrigatorio(dados.descricao, "descricao");
+  }
+  
+  if (dados.valor !== undefined && dados.valor !== null && dados.valor !== "") {
+    const valorNum = Number(dados.valor);
+    if (isNaN(valorNum) || valorNum < 0) {
+      throw new Error("O valor deve ser um número positivo");
+    }
+  }
+  
+  if (dados.duracao !== undefined && dados.duracao !== null && dados.duracao !== "") {
+    const duracaoNum = Number(dados.duracao);
+    if (isNaN(duracaoNum) || duracaoNum <= 0) {
+      throw new Error("A duração deve ser um número positivo (em minutos)");
+    }
+  }
 
   if (isInclusiveBarbeariaId) {
     obrigatorio(dados.barbearia_id, "barbearia_id");
   }
 
-  // Garante que valor e duracao são números
-  const valorNum = Number(dados.valor);
-  const duracaoNum = Number(dados.duracao);
-
-  if (isNaN(valorNum) || valorNum <= 0) {
-    throw new Error("O valor deve ser um número positivo");
-  }
-
-  if (isNaN(duracaoNum) || duracaoNum <= 0) {
-    throw new Error("A duração deve ser um número positivo (em minutos)");
-  }
-
-  // Valida status
-  const statusValidos = ["ativo", "inativo"];
-  if (!statusValidos.includes(dados.status)) {
-    throw new Error(`Status inválido. Use: ${statusValidos.join(", ")}`);
+  // Valida status se presente
+  if (dados.status !== undefined) {
+    const statusValidos = ["ativo", "inativo"];
+    if (!statusValidos.includes(dados.status)) {
+      throw new Error(`Status inválido. Use: ${statusValidos.join(", ")}`);
+    }
   }
 
   return {
     nome: String(dados.nome).trim(),
-    descricao: String(dados.descricao).trim(),
-    valor: valorNum,
-    duracao: duracaoNum,
-    status: dados.status,
+    descricao: dados.descricao ? String(dados.descricao).trim() : "",
+    valor: dados.valor ? String(dados.valor).trim() : "",
+    duracao: dados.duracao ? String(dados.duracao).trim() : "",
+    status: dados.status || "ativo",
     barbearia_id: isInclusiveBarbeariaId ? String(dados.barbearia_id).trim() : undefined,
   };
 }
@@ -73,7 +73,7 @@ export async function listarServicos(barbeariaId, queries = []) {
   obrigatorio(barbeariaId, "barbeariaId");
 
   const queriesComFiltro = [
-    `equal(barbearia_id,"${barbeariaId}")`,
+    Query.equal("barbearia_id", barbeariaId),
     ...queries,
   ];
 
@@ -111,7 +111,7 @@ export async function criarServico(dados) {
       ...dadosValidados,
       criado_em: new Date().toISOString(),
     };
-    const criado = await createCollectionDocument("servicos", payload);
+    const criado = await createDocument("servicos", "unique()", payload);
     return criado;
   } catch (erro) {
     console.error("Erro ao criar serviço:", erro);
@@ -132,7 +132,7 @@ export async function atualizarServico(servicoId, dados) {
   const dadosValidados = validarDadosServico(dados, false);
 
   try {
-    const atualizado = await updateCollectionDocument(
+    const atualizado = await updateDocument(
       "servicos",
       servicoId,
       dadosValidados
@@ -153,7 +153,7 @@ export async function removerServico(servicoId) {
   obrigatorio(servicoId, "servicoId");
 
   try {
-    await deleteCollectionDocument("servicos", servicoId);
+    await deleteDocument("servicos", servicoId);
   } catch (erro) {
     console.error("Erro ao remover serviço:", erro);
     throw new Error("Falha ao remover serviço. Tente novamente.");
@@ -171,7 +171,7 @@ export async function alternarStatusServico(servicoId, ativo) {
 
   try {
     const novoStatus = ativo ? "ativo" : "inativo";
-    const atualizado = await updateCollectionDocument(
+    const atualizado = await updateDocument(
       "servicos",
       servicoId,
       { status: novoStatus }

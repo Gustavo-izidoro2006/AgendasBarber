@@ -32,10 +32,12 @@ export default function ListaServicos({
   };
 
   const formatarMoeda = (valor) => {
+    const num = typeof valor === 'string' ? parseFloat(valor) : valor;
+    if (isNaN(num)) return "—";
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
       currency: "BRL",
-    }).format(valor);
+    }).format(num);
   };
 
   if (carregando && servicos.length === 0) {
