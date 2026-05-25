@@ -9,14 +9,14 @@ const databases = new Databases(client);
 
 const DB_ID = import.meta.env.VITE_APPWRITE_DB_ID;
 
-// Mapeamento das collections - a collection "clientes" armazena as BARBEARIAS
+// Mapeamento das collections - valores podem vir do .env (VITE_COLLECTION_*) ou usar nomes padrões
 const COLLECTIONS = {
-  barbearias: "clientes", // Collection que armazena as barbearias (cada documento é uma barbearia)
-  servicos: "servicos",
-  clientes: "clientes_barbearia", // Collection que armazena os clientes de cada barbearia
-  agendamentos: "agendamentos",
-  horarios: "horarios_atendimento",
-  configuracoes: "configuracoes_barbearia",
+  barbearias: import.meta.env.VITE_COLLECTION_BARBEARIAS || "barbearias",
+  servicos: import.meta.env.VITE_COLLECTION_SERVICOS || "servicos",
+  clientes: import.meta.env.VITE_COLLECTION_CLIENTES || "clientes_barbearia",
+  agendamentos: import.meta.env.VITE_COLLECTION_AGENDAMENTOS || "agendamentos",
+  horarios: import.meta.env.VITE_COLLECTION_HORARIOS || "horarios_atendimento",
+  configuracoes: import.meta.env.VITE_COLLECTION_CONFIGURACOES || "configuracoes_barbearia",
 };
 
 function ensureDatabaseConfig() {
@@ -65,10 +65,16 @@ async function deleteDocument(key, documentId) {
 
 // Compat shim: criar sessão por email (algumas versões do SDK expõem nomes diferentes)
 async function createEmailSession(email, password) {
+  // Tenta usar SDK primeiro, mas se houver erro (401/CORS) usa fallback REST com credentials
   if (typeof account.createEmailSession === "function") {
-    return account.createEmailSession(email, password);
+    try {
+      return await account.createEmailSession(email, password);
+    } catch (err) {
+      console.warn("account.createEmailSession falhou, tentando fallback REST:", err?.message || err);
+      // continua para fallback
+    }
   }
-  // fallback via fetch para o endpoint REST usando a variável de ambiente
+
   const endpoint = import.meta.env.VITE_APPWRITE_ENDPOINT;
   console.debug("Appwrite createEmailSession fallback, endpoint:", endpoint, "project:", import.meta.env.VITE_APPWRITE_PROJECT_ID);
   if (!endpoint) throw new Error("VITE_APPWRITE_ENDPOINT não configurado");
@@ -86,6 +92,16 @@ async function createEmailSession(email, password) {
     err.response = body;
     throw err;
   }
+  // Se o Appwrite retornar header X-Fallback-Cookies (modo fallback para cookies), persiste em localStorage
+  try {
+    const fallback = res.headers.get("X-Fallback-Cookies");
+    if (fallback && typeof window !== "undefined" && window.localStorage) {
+      window.localStorage.setItem("cookieFallback", fallback);
+    }
+  } catch (e) {
+    console.debug("Não foi possível setar cookieFallback:", e?.message || e);
+  }
+
   return res.json();
 }
 

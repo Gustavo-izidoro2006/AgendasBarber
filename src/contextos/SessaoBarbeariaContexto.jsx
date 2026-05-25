@@ -19,6 +19,8 @@ export function SessaoBarbeariaProvider({ children }) {
   const [barbearia, setBarbearia] = useState(null);
 
   const carregarSessao = useCallback(async () => {
+    // garante que o loading seja desligado em todos os caminhos e trata sessão expirada
+    let cancelled = false;
     setCarregando(true);
     setErro(null);
 

@@ -260,6 +260,7 @@ function Calendario({
 }
 
 export default function Dashboard() {
+  const { carregando } = useSessaoBarbearia();
   const { usuario, logout } = useSessaoBarbearia();
   const [barbearia, setBarbearia] = useState(null);
   const [aba, setAba] = useState("estatisticas");
