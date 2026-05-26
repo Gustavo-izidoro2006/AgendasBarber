@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { account, databases, COLLECTIONS, createEmailSession, deleteSession, Query, DB_ID, createDocument } from "../lib/appwrite";
+import { account, databases, COLLECTIONS, createEmailSession, deleteSession, Query, DB_ID, createDocument, getAccount } from "../lib/appwrite";
 import { useNavigate } from "react-router-dom";
 
 const SessaoBarbeariaContexto = createContext(null);
@@ -29,7 +29,7 @@ export function SessaoBarbeariaProvider({ children }) {
     setErro(null);
 
     try {
-      const user = await account.get();
+      const user = await getAccount();
       setUsuario(user);
 
       if (!DB_ID) {

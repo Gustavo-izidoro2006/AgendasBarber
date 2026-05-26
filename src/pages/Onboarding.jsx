@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
+
 import { useNavigate } from "react-router-dom";
 import { useSessaoBarbearia } from "../contextos/SessaoBarbeariaContexto";
 import { account, databases, COLLECTIONS, DB_ID, Query } from "../lib/appwrite";
@@ -52,6 +53,7 @@ function Progresso({ etapaAtual, total }) {
     </div>
   );
 }
+
 
 function Card({ children }) {
   return (
@@ -117,22 +119,22 @@ function Campo({ label, children }) {
 
 export default function Onboarding() {
   const { carregando, usuario, barbearia } = useSessaoBarbearia();
-useEffect(() => {
-  if (carregando) return;
-  if (!usuario) {
-    navigate("/login", { replace: true });
-    return;
-  }
-}, [carregando, usuario, navigate]);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (carregando) return;
+    if (!usuario) {
+      navigate("/login", { replace: true });
+      return;
+    }
+  }, [carregando, usuario, navigate]);
+
 
   const etapas = useMemo(
     () => [
       { chave: "horarios", titulo: "Horários" },
       { chave: "servicos", titulo: "Serviços" },
       { chave: "precos", titulo: "Preços" },
-      { chave: "promocoes", titulo: "Promoções" },
-      { chave: "descricao", titulo: "Descrição" },
     ],
     []
   );
@@ -142,8 +144,6 @@ useEffect(() => {
   const [horarios, setHorarios] = useState({});
   const [servicos, setServicos] = useState([]);
   const [precos, setPrecos] = useState({});
-  const [promocoes, setPromocoes] = useState({ habilitada: false, tipo: "percentual", valor: 0 });
-  const [descricao, setDescricao] = useState("");
 
   // We remove this effect because the barbearia document (from clientes collection) does not contain
   // horarios, servicos, precos, promocoes, descricao. These are stored in separate collections.
@@ -162,30 +162,50 @@ useEffect(() => {
     setEtapaIndex((i) => Math.max(0, i - 1));
   }
 
-  async function finalizar() {
+    // Substitua a sua função inteira por esta até o início do seu "return (" do HTML
+  const finalizar = async () => {
     try {
-      const barbeariaId = barbearia?.$id ?? barbearia?.id;
-      if (!barbeariaId) throw new Error("Barbearia não carregada na sessão.");
+      // 1) Garantir documento em `barbearias` e capturar barbearia.$id
+      const user = await account.get();
 
-      // 1) horários_atendimento (persistência por barbearia_id)
-      // Upsert: tenta localizar 1 doc existente; se não houver, cria.
-      const horariosDocs = await databases.listDocuments(DB_ID, COLLECTIONS.horarios, [
-        Query.equal("barbearia_id", barbeariaId),
-        Query.limit(1),
-      ]);
-      const horariosDoc = horariosDocs?.documents?.[0] ?? null;
-      const horariosPayload = {
-        ...horarios,
-        barbearia_id: String(barbeariaId),
-      };
+      let barbeariaDoc = barbearia?.$id ? barbearia : null;
+      let barbeariaId = barbeariaDoc?.$id ?? barbeariaDoc?.id ?? null;
+      let slug = barbeariaDoc?.slug ?? barbearia?.slug ?? null;
 
-      if (horariosDoc?.$id) {
-        await databases.updateDocument(DB_ID, COLLECTIONS.horarios, horariosDoc.$id, horariosPayload);
-      } else {
-        await databases.createDocument(DB_ID, COLLECTIONS.horarios, "unique()", horariosPayload);
+      if (!barbeariaId) {
+        const resp = await databases.listDocuments(DB_ID, COLLECTIONS.barbearias, [
+          Query.equal("user_id", user.$id),
+          Query.limit(1),
+        ]);
+        barbeariaDoc = resp?.documents?.[0] ?? null;
+        barbeariaId = barbeariaDoc?.$id ?? null;
+        slug = barbeariaDoc?.slug ?? null;
       }
 
-      // 2) configuracoes_barbearia (persistência por barbearia_id)
+      if (!barbeariaId) {
+        // Caso não exista documento, cria a partir da conta
+        const nomeAut = user?.name ?? user?.email ?? "Barbearia";
+        const baseSlug = String(nomeAut)
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)/g, "");
+        slug = baseSlug || "barbearia";
+
+        const created = await databases.createDocument(DB_ID, COLLECTIONS.barbearias, "unique()", {
+          nome: nomeAut,
+          slug,
+          email: user?.email ?? "",
+          user_id: user.$id,
+          status: "ativo",
+        });
+        barbeariaDoc = created;
+        barbeariaId = created.$id;
+      }
+
+      if (!barbeariaId) throw new Error("barbeariaId não resolvido");
+      if (!slug) throw new Error("slug da barbearia não resolvido");
+
+      // 2) Criar/atualizar `configuracoes_barbearia` (One-to-One)
       const configDocs = await databases.listDocuments(DB_ID, COLLECTIONS.configuracoes, [
         Query.equal("barbearia_id", barbeariaId),
         Query.limit(1),
@@ -193,9 +213,10 @@ useEffect(() => {
       const configDoc = configDocs?.documents?.[0] ?? null;
 
       const configuracoesPayload = {
-        barbearia_id: String(barbeariaId),
-        promocoes,
-        descricao,
+        barbearia_id: barbeariaId,
+        onboarding_completo: false,
+        intervalo_agendamento: 15,
+        antecedencia_minima: 2,
       };
 
       if (configDoc?.$id) {
@@ -204,11 +225,51 @@ useEffect(() => {
         await databases.createDocument(DB_ID, COLLECTIONS.configuracoes, "unique()", configuracoesPayload);
       }
 
-      // 3) servicos (CRUD: garantir persistência real com barbearia_id)
-      // Onboarding hoje armazena duracaoMin e preços por id local; convertemos para campos do schema.
-      // Sem recriar “arquitetura” e sem alterar o dashboard: usamos criarServico por item.
-      // Observação: sem conhecer ids reais existentes, criamos documentações novas para cada item do onboarding.
-      // Se desejar limpeza antes, isso exigiria query/remoção; evitamos para não impactar dados já corrigidos.
+      // 3) Criar documentos em `horarios_atendimento`
+      const diasSelecionados = Object.entries(horarios)
+        .filter(([k, v]) => typeof v === "boolean" && v === true)
+        .map(([k]) => k);
+
+      const abertura = horarios?.inicio || "";
+      const fechamento = horarios?.fim || "";
+
+      const mapDiaSemana = {
+        seg: 1,
+        ter: 2,
+        qua: 3,
+        qui: 4,
+        sex: 5,
+        sab: 6,
+        dom: 7,
+      };
+
+      for (const ch of diasSelecionados) {
+        const dia_semana = mapDiaSemana[ch];
+        if (!dia_semana) continue;
+
+        const existing = await databases.listDocuments(DB_ID, COLLECTIONS.horarios, [
+          Query.equal("barbearia_id", barbeariaId),
+          Query.equal("dia_semana", dia_semana),
+          Query.limit(1),
+        ]);
+        const existingDoc = existing?.documents?.[0] ?? null;
+
+        const horariosPayload = {
+          barbearia_id: barbeariaId,
+          dia_semana,
+          abertura,
+          fechamento,
+          ativo: true,
+        };
+
+        if (existingDoc?.$id) {
+          await databases.updateDocument(DB_ID, COLLECTIONS.horarios, existingDoc.$id, horariosPayload);
+        } else {
+          await databases.createDocument(DB_ID, COLLECTIONS.horarios, "unique()", horariosPayload);
+        }
+      }
+
+      // 4) Criar documentos em `servicos`
       for (const srv of servicos) {
         const duracao = srv.duracaoMin ?? srv.duracao;
         const valor = precos?.[srv.id] ?? srv.valor;
@@ -219,20 +280,39 @@ useEffect(() => {
           valor: valor === "" || valor == null ? 0 : String(valor),
           duracao: String(duracao),
           status: "ativo",
-          barbearia_id: String(barbeariaId),
+          barbearia_id: barbeariaId,
         });
       }
-    } catch (err) {
-      console.error("Onboarding finalizar() erro:", err);
-    } finally {
-      const targetSlug = barbearia?.slug;
-        if (!targetSlug) {
-          console.error('Slug da barbearia ausente após onboarding');
-          return;
+
+      // 5) Atualizar `configuracoes_barbearia` setando `onboarding_completo: true`
+      if (configDoc?.$id) {
+        await databases.updateDocument(DB_ID, COLLECTIONS.configuracoes, configDoc.$id, {
+          onboarding_completo: true,
+        });
+      } else {
+        const cfg2 = await databases.listDocuments(DB_ID, COLLECTIONS.configuracoes, [
+          Query.equal("barbearia_id", barbeariaId),
+          Query.limit(1),
+        ]);
+        const cfgDoc2 = cfg2?.documents?.[0] ?? null;
+        if (cfgDoc2?.$id) {
+          await databases.updateDocument(DB_ID, COLLECTIONS.configuracoes, cfgDoc2.$id, {
+            onboarding_completo: true,
+          });
         }
-        navigate(`/dashboard/${targetSlug}`);
+      }
+
+      // 6) Redirecionar usando o slug gerado com sucesso
+      if (slug) {
+        navigate(`/dashboard/${slug}`);
+      } else {
+        console.error("Não foi possível redirecionar: slug não encontrado.");
+      }
+
+    } catch (err) {
+      console.error("Onboarding finalizar() erro detalhado:", err?.message, err?.response || err);
     }
-  }
+  }; // Fim exato da função finalizar
 
 
   return (
@@ -601,156 +681,10 @@ useEffect(() => {
             </section>
           ) : null}
 
-          {etapaChave === "promocoes" ? (
-            <section>
-              <h2 style={{ marginTop: 0, marginBottom: 6, fontSize: 20 }}>Promoções</h2>
-              <p style={{ marginTop: 0, color: "rgba(255,255,255,0.8)", fontSize: 14 }}>
-                Habilite uma promoção e defina regras (serão salvas no backend).
-              </p>
-
-              <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                <div
-                  style={{
-                    padding: 16,
-                    borderRadius: 16,
-                    background: "rgba(255,255,255,0.03)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                  }}
-                >
-                  <Campo label="Habilitar promoções">
-                    <select
-                      value={promocoes.habilitada ? "sim" : "nao"}
-                      onChange={(e) => setPromocoes((p) => ({ ...p, habilitada: e.target.value === "sim" }))}
-                      style={{
-                        width: "100%",
-                        padding: "12px 12px",
-                        borderRadius: 14,
-                        border: "1px solid rgba(255,255,255,0.10)",
-                        background: "rgba(255,255,255,0.04)",
-                        color: "white",
-                        outline: "none",
-                      }}
-                    >
-                      <option value="sim">Sim</option>
-                      <option value="nao">Não</option>
-                    </select>
-                  </Campo>
-
-                  <Campo label="Tipo">
-                    <select
-                      value={promocoes.tipo}
-                      onChange={(e) => setPromocoes((p) => ({ ...p, tipo: e.target.value }))}
-                      disabled={!promocoes.habilitada}
-                      style={{
-                        width: "100%",
-                        padding: "12px 12px",
-                        borderRadius: 14,
-                        border: "1px solid rgba(255,255,255,0.10)",
-                        background: "rgba(255,255,255,0.04)",
-                        color: "white",
-                        outline: "none",
-                        opacity: promocoes.habilitada ? 1 : 0.6,
-                      }}
-                    >
-                      <option value="percentual">Percentual (%)</option>
-                      <option value="valor">Valor fixo (R$)</option>
-                    </select>
-                  </Campo>
-
-                  <Campo label={promocoes.tipo === "percentual" ? "Percentual" : "Valor (R$)"}>
-                    <input
-                      type="number"
-                      min={0}
-                      step={1}
-                      value={promocoes.valor}
-                      onChange={(e) => setPromocoes((p) => ({ ...p, valor: Number(e.target.value) }))}
-                      disabled={!promocoes.habilitada}
-                      style={{
-                        width: "100%",
-                        padding: "12px 12px",
-                        borderRadius: 14,
-                        border: "1px solid rgba(255,255,255,0.10)",
-                        background: "rgba(255,255,255,0.04)",
-                        color: "white",
-                        outline: "none",
-                        opacity: promocoes.habilitada ? 1 : 0.6,
-                      }}
-                    />
-                  </Campo>
-                </div>
-
-                <div
-                  style={{
-                    padding: 16,
-                    borderRadius: 16,
-                    background: "rgba(253,166,60,0.08)",
-                    border: "1px solid rgba(253,166,60,0.22)",
-                  }}
-                >
-                  <div style={{ fontWeight: 900, marginBottom: 8 }}>Exemplo</div>
-                  <div style={{ color: "rgba(255,255,255,0.86)", fontSize: 14 }}>
-                    {promocoes.habilitada ? (
-                      <>
-                        Todos os serviços com{" "}
-                        <strong>{promocoes.tipo === "percentual" ? `${promocoes.valor}%` : `R$ ${promocoes.valor}`}</strong>{" "}
-                        de desconto.
-                      </>
-                    ) : (
-                      <>Promoções desabilitadas no momento.</>
-                    )}
-                  </div>
-                  <div style={{ marginTop: 12, color: "rgba(255,255,255,0.7)", fontSize: 12 }}>
-                    No Appwrite, depois modelaremos promoções por escopo (serviço/cliente) e regras.
-                  </div>
-                </div>
-              </div>
-            </section>
-          ) : null}
-
-          {etapaChave === "descricao" ? (
-            <section>
-              <h2 style={{ marginTop: 0, marginBottom: 6, fontSize: 20 }}>Descrição</h2>
-              <p style={{ marginTop: 0, color: "rgba(255,255,255,0.8)", fontSize: 14 }}>
-                Uma breve descrição para aparecer no link público.
-              </p>
-
-              <div style={{ marginTop: 14 }}>
-                <Campo label="Descrição">
-                  <textarea
-                    value={descricao}
-                    onChange={(e) => setDescricao(e.target.value)}
-                    rows={6}
-                    style={{
-                      width: "100%",
-                      padding: "12px 12px",
-                      borderRadius: 14,
-                      border: "1px solid rgba(255,255,255,0.10)",
-                      background: "rgba(255,255,255,0.04)",
-                      color: "white",
-                      outline: "none",
-                      resize: "vertical",
-                    }}
-                  />
-                </Campo>
-
-                <div
-                  style={{
-                    padding: 14,
-                    borderRadius: 16,
-                    background: "rgba(255,255,255,0.03)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    color: "rgba(255,255,255,0.82)",
-                    fontSize: 13,
-                  }}
-                >
-                  <strong>Pronto:</strong> ao clicar em “Concluir”, vamos liberar seu Dashboard.
-                </div>
-              </div>
-            </section>
-          ) : null}
-        </div>
+          </div>
 
         {/* Rodapé do onboarding */}
+
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 18 }}>
           <Botao
             variante="secundario"

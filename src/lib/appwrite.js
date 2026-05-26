@@ -1,27 +1,27 @@
 import { Client, Account, Databases, Query } from "appwrite";
 
 const client = new Client()
-  .setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT)
-  .setProject(import.meta.env.VITE_APPWRITE_PROJECT_ID);
+  .setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT || "https://sfo.cloud.appwrite.io/v1")
+  .setProject(import.meta.env.VITE_APPWRITE_PROJECT_ID || "6a0ddc980020842b9012");
 
 const account = new Account(client);
 const databases = new Databases(client);
 
-const DB_ID = import.meta.env.VITE_APPWRITE_DB_ID;
+const DB_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 
 // Mapeamento das collections - valores podem vir do .env (VITE_COLLECTION_*) ou usar nomes padrões
 const COLLECTIONS = {
-  barbearias: import.meta.env.VITE_COLLECTION_BARBEARIAS || "barbearias",
-  servicos: import.meta.env.VITE_COLLECTION_SERVICOS || "servicos",
-  clientes: import.meta.env.VITE_COLLECTION_CLIENTES || "clientes_barbearia",
-  agendamentos: import.meta.env.VITE_COLLECTION_AGENDAMENTOS || "agendamentos",
-  horarios: import.meta.env.VITE_COLLECTION_HORARIOS || "horarios_atendimento",
-  configuracoes: import.meta.env.VITE_COLLECTION_CONFIGURACOES || "configuracoes_barbearia",
+  barbearias: import.meta.env.VITE_APPWRITE_BARBEARIAS_TABLE_ID || "barbearias",
+  servicos: import.meta.env.VITE_APPWRITE_SERVICOS_TABLE_ID || "servicos",
+  clientes: import.meta.env.VITE_APPWRITE_CLIENTES_TABLE_ID || "clientes_barbearia",
+  agendamentos: import.meta.env.VITE_APPWRITE_AGENDAMENTOS_TABLE_ID || "agendamentos",
+  horarios: import.meta.env.VITE_APPWRITE_HORARIOS_TABLE_ID || "horarios_atendimento",
+  configuracoes: import.meta.env.VITE_APPWRITE_CONFIGURACOES_TABLE_ID || "configuracoes_barbearia",
 };
 
 function ensureDatabaseConfig() {
   if (!DB_ID) {
-    console.warn("VITE_APPWRITE_DB_ID não está configurada. Operações de banco de dados não estarão disponíveis.");
+    console.warn("VITE_APPWRITE_DATABASE_ID não está configurada. Operações de banco de dados não estarão disponíveis.");
   }
 }
 
@@ -63,36 +63,42 @@ async function deleteDocument(key, documentId) {
   return databases.deleteDocument(DB_ID, getCollectionId(key), documentId);
 }
 
-// Compat shim: criar sessão por email (algumas versões do SDK expõem nomes diferentes)
 async function createEmailSession(email, password) {
-  // Tenta usar SDK primeiro, mas se houver erro (401/CORS) usa fallback REST com credentials
+  // 1. Tenta o método moderno do SDK atual (Appwrite v14+)
+  if (typeof account.createEmailPasswordSession === "function") {
+    return await account.createEmailPasswordSession(email, password);
+  }
+  
+  // 2. Tenta o método antigo do SDK como fallback (Appwrite v13 ou inferior)
   if (typeof account.createEmailSession === "function") {
     try {
       return await account.createEmailSession(email, password);
     } catch (err) {
       console.warn("account.createEmailSession falhou, tentando fallback REST:", err?.message || err);
-      // continua para fallback
     }
   }
 
+  // 3. Fallback manual via Fetch API caso o SDK falhe por completo
   const endpoint = import.meta.env.VITE_APPWRITE_ENDPOINT;
-  console.debug("Appwrite createEmailSession fallback, endpoint:", endpoint, "project:", import.meta.env.VITE_APPWRITE_PROJECT_ID);
+  const projectId = import.meta.env.VITE_APPWRITE_PROJECT_ID;
+  console.debug("Appwrite createEmailSession fallback, endpoint:", endpoint, "project:", projectId);
   if (!endpoint) throw new Error("VITE_APPWRITE_ENDPOINT não configurado");
 
-  const url = `${endpoint.replace(/\/$/, "")}/account/sessions`;
+  const url = `${endpoint.replace(/\/$/, "")}/account/sessions/email`;
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Appwrite-Project": import.meta.env.VITE_APPWRITE_PROJECT_ID },
+    headers: { "Content-Type": "application/json", "X-Appwrite-Project": projectId },
     body: JSON.stringify({ email, password }),
     credentials: "include",
   });
+  
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     const err = new Error(body?.message || `HTTP ${res.status}`);
     err.response = body;
     throw err;
   }
-  // Se o Appwrite retornar header X-Fallback-Cookies (modo fallback para cookies), persiste em localStorage
+  
   try {
     const fallback = res.headers.get("X-Fallback-Cookies");
     if (fallback && typeof window !== "undefined" && window.localStorage) {
@@ -103,6 +109,35 @@ async function createEmailSession(email, password) {
   }
 
   return res.json();
+}
+
+function getFallbackHeaders() {
+  return {
+    "X-Appwrite-Project": import.meta.env.VITE_APPWRITE_PROJECT_ID,
+  };
+}
+
+async function getAccount() {
+  try {
+    return await account.get();
+  } catch (e) {
+    // se não autenticado/401, tenta fallback REST
+    if (e?.code === 401 || e?.status === 401) {
+      const endpoint = import.meta.env.VITE_APPWRITE_ENDPOINT;
+      if (!endpoint) throw e;
+
+      const url = `${endpoint.replace(/\/$/, "")}/account`;
+      const res = await fetch(url, {
+        method: "GET",
+        headers: getFallbackHeaders(),
+        credentials: "include",
+      });
+
+      if (!res.ok) throw e;
+      return res.json();
+    }
+    throw e;
+  }
 }
 
 async function deleteSession(sessionId = "current") {
@@ -125,4 +160,4 @@ async function deleteSession(sessionId = "current") {
 }
 
 // Exporta Query para ser usado nos contextos e services
-export { client, account, databases, DB_ID, COLLECTIONS, Query, listCollection, getDocument, createDocument, updateDocument, deleteDocument, createEmailSession, deleteSession };
+export { client, account, databases, DB_ID, COLLECTIONS, Query, listCollection, getDocument, createDocument, updateDocument, deleteDocument, createEmailSession, deleteSession, getAccount };

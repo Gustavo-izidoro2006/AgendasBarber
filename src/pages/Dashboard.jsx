@@ -441,7 +441,6 @@ export default function Dashboard() {
   const [agendamentos, setAgendamentos] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [servicosState, setServicosState] = useState([]);
-  const [promocoes, setPromocoes] = useState([]);
 
   useEffect(() => {
     let mounted = true;
@@ -596,7 +595,6 @@ export default function Dashboard() {
     agendamentos: "Agendamentos",
     clientes: "Clientes",
     servicos: "Serviços",
-    promocoes: "Promoções",
     calendario: "Calendário",
   };
 
@@ -605,7 +603,6 @@ export default function Dashboard() {
     { chave: "agendamentos" },
     { chave: "clientes" },
     { chave: "servicos" },
-    { chave: "promocoes" },
     { chave: "calendario" },
   ];
 
@@ -926,49 +923,6 @@ export default function Dashboard() {
                       ))}
                     </tbody>
                   </table>
-                </div>
-              </Card>
-            </section>
-          ) : null}
-
-          {aba === "promocoes" ? (
-            <section style={{ display: "grid", gap: 12 }}>
-              <Card>
-                <div style={{ fontWeight: 1000, marginBottom: 8 }}>Seção de promoções</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
-                  {promocoes.map((p) => (
-                    <div
-                      key={p.id}
-                      style={{
-                        padding: 14,
-                        borderRadius: 16,
-                        border: "1px solid rgba(255,255,255,0.10)",
-                        background: p.ativa ? "rgba(242,183,5,0.10)" : "rgba(255,255,255,0.03)",
-                      }}
-                    >
-                      <div style={{ fontWeight: 1000 }}>{p.titulo}</div>
-                      <div style={{ marginTop: 8, color: "rgba(255,255,255,0.82)", fontSize: 14 }}>
-                        {p.tipo === "percentual" ? `${p.valor}%` : `R$ ${p.valor}`} de desconto
-                      </div>
-                      <div style={{ marginTop: 10 }}>
-                        <span
-                          style={{
-                            padding: "6px 10px",
-                            borderRadius: 999,
-                            border: "1px solid rgba(255,255,255,0.10)",
-                            background: p.ativa ? "rgba(242,183,5,0.10)" : "rgba(255,255,255,0.03)",
-                            fontWeight: 900,
-                            fontSize: 12,
-                          }}
-                        >
-                          {p.ativa ? "Ativa" : "Pausada"}
-                        </span>
-                      </div>
-                      <div style={{ marginTop: 10, fontSize: 12, color: "rgba(255,255,255,0.65)", lineHeight: 1.35 }}>
-                        Regras por escopo e período serão aplicadas pelo backend.
-                      </div>
-                    </div>
-                  ))}
                 </div>
               </Card>
             </section>

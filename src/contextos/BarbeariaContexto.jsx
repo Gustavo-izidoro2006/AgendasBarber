@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { account, databases, COLLECTIONS, DB_ID, Query } from "../lib/appwrite";
+import { databases, COLLECTIONS, DB_ID, Query, getAccount } from "../lib/appwrite";
 
 const BarbeariaContexto = createContext(null);
 
@@ -24,7 +24,7 @@ export function BarbeariaProvider({ children }) {
       setCarregando(true);
       setErro(null);
       try {
-        const user = await account.get();
+        const user = await getAccount();
 
         if (!DB_ID) {
           if (!cancelled) {
@@ -45,17 +45,20 @@ export function BarbeariaProvider({ children }) {
 
         if (doc) {
           setBarbearia(doc);
-          // navega somente após terminar a query
-          navigate(`/dashboard/${doc.slug}`, { replace: true });
+          // não redireciona aqui; a rota é decidida pelo guard
         } else {
-          // sem documento de barbearia => onboarding
-          navigate(`/dashboard/onboarding`, { replace: true });
+          setBarbearia(null);
         }
       } catch (e) {
         if (cancelled) return;
-        setErro(e);
-        setBarbearia(null);
-        // Se usuário não estiver autenticado, deixa o app/guard redirecionar
+        // quando não autenticado (401), não poluir erro; só zera barbearia
+        if (e?.code === 401) {
+          setErro(null);
+          setBarbearia(null);
+        } else {
+          setErro(e);
+          setBarbearia(null);
+        }
         // (aqui não redirecionamos para evitar loops)
       } finally {
         if (!cancelled) setCarregando(false);
