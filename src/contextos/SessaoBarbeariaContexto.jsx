@@ -17,6 +17,7 @@ export function SessaoBarbeariaProvider({ children }) {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState(null);
   const [barbearia, setBarbearia] = useState(null);
+  const [barbeariaId, setBarbeariaId] = useState(null);
 
   const carregarSessao = useCallback(async () => {
     // garante que o loading seja desligado em todos os caminhos e trata sessão expirada
@@ -30,6 +31,7 @@ export function SessaoBarbeariaProvider({ children }) {
 
       if (!DB_ID) {
         setBarbearia(null);
+      setBarbeariaId(null);
         setCarregando(false);
         return null;
       }
@@ -42,10 +44,12 @@ export function SessaoBarbeariaProvider({ children }) {
         ]);
         const barbeariaDoUsuario = resposta?.documents?.[0] ?? null;
         setBarbearia(barbeariaDoUsuario);
+        setBarbeariaId(barbeariaDoUsuario?.$id || null);
         return barbeariaDoUsuario;
       } catch (err) {
         console.error("Erro ao buscar barbearia:", err);
         setBarbearia(null);
+      setBarbeariaId(null);
         return null;
       }
     } catch (err) {
@@ -54,6 +58,7 @@ export function SessaoBarbeariaProvider({ children }) {
       console.debug("Sessão não autenticada:", err?.message);
       setUsuario(null);
       setBarbearia(null);
+      setBarbeariaId(null);
     } finally {
       setCarregando(false);
     }
@@ -75,7 +80,7 @@ export function SessaoBarbeariaProvider({ children }) {
 
         // Verifica se a barbearia já está configurada
         if (barbeariaAtiva) {
-          navigate("/dashboard");
+          navigate(`/dashboard/${barbeariaAtiva.slug}`);
         } else {
           navigate("/dashboard/onboarding");
         }
@@ -94,6 +99,7 @@ export function SessaoBarbeariaProvider({ children }) {
       await deleteSession("current");
       setUsuario(null);
       setBarbearia(null);
+      setBarbeariaId(null);
       navigate("/");
     } catch (err) {
       console.error("logout erro:", err);
@@ -173,6 +179,7 @@ export function SessaoBarbeariaProvider({ children }) {
     () => ({
       usuario,
       barbearia,
+      barbeariaId,
       carregando,
       erro,
       login,
@@ -181,7 +188,7 @@ export function SessaoBarbeariaProvider({ children }) {
       atualizarBarbearia,
       recarregarSessao: carregarSessao,
     }),
-    [usuario, barbearia, carregando, erro, login, logout, cadastro, atualizarBarbearia, carregarSessao]
+    [usuario, barbearia, barbeariaId, carregando, erro, login, logout, cadastro, atualizarBarbearia, carregarSessao]
   );
 
   return <SessaoBarbeariaContexto.Provider value={valor}>{children}</SessaoBarbeariaContexto.Provider>;

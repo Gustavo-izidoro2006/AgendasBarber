@@ -1,4 +1,5 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { useSessaoBarbearia } from "../contextos/SessaoBarbeariaContexto";
 import { account, databases, COLLECTIONS, DB_ID, Query } from "../lib/appwrite";
 
@@ -150,6 +151,151 @@ function Botao({
   );
 }
 
+function FormServicoModal({ servico, onSalvar, onCancelar }) {
+  const [formData, setFormData] = useState({
+    nome: "",
+    preco: "",
+    duracaoMin: "",
+  });
+
+  useEffect(() => {
+    if (servico) {
+      setFormData({
+        nome: servico.nome || "",
+        preco: String(servico.preco || ""),
+        duracaoMin: String(servico.duracaoMin || ""),
+      });
+    } else {
+      setFormData({
+        nome: "",
+        preco: "",
+        duracaoMin: "",
+      });
+    }
+  }, [servico]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSalvar(formData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
+      <div>
+        <label style={{ display: "block", marginBottom: 6, fontWeight: 800, fontSize: 13 }}>
+          Nome do serviço *
+        </label>
+        <input
+          type="text"
+          name="nome"
+          value={formData.nome}
+          onChange={handleChange}
+          required
+          style={{
+            width: "100%",
+            padding: "10px 12px",
+            borderRadius: 10,
+            border: "1px solid rgba(255,255,255,0.15)",
+            background: "rgba(255,255,255,0.05)",
+            color: "white",
+            fontWeight: 500,
+          }}
+          placeholder="Ex: Corte de cabelo"
+        />
+      </div>
+
+      <div>
+        <label style={{ display: "block", marginBottom: 6, fontWeight: 800, fontSize: 13 }}>
+          Preço (R$) *
+        </label>
+        <input
+          type="number"
+          name="preco"
+          value={formData.preco}
+          onChange={handleChange}
+          required
+          step="0.01"
+          min="0"
+          style={{
+            width: "100%",
+            padding: "10px 12px",
+            borderRadius: 10,
+            border: "1px solid rgba(255,255,255,0.15)",
+            background: "rgba(255,255,255,0.05)",
+            color: "white",
+            fontWeight: 500,
+          }}
+          placeholder="0.00"
+        />
+      </div>
+
+      <div>
+        <label style={{ display: "block", marginBottom: 6, fontWeight: 800, fontSize: 13 }}>
+          Duração (minutos) *
+        </label>
+        <input
+          type="number"
+          name="duracaoMin"
+          value={formData.duracaoMin}
+          onChange={handleChange}
+          required
+          min="1"
+          style={{
+            width: "100%",
+            padding: "10px 12px",
+            borderRadius: 10,
+            border: "1px solid rgba(255,255,255,0.15)",
+            background: "rgba(255,255,255,0.05)",
+            color: "white",
+            fontWeight: 500,
+          }}
+          placeholder="30"
+        />
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 }}>
+        <button
+          type="button"
+          onClick={onCancelar}
+          style={{
+            padding: "10px 12px",
+            borderRadius: 10,
+            border: "1px solid rgba(255,255,255,0.15)",
+            background: "rgba(255,255,255,0.05)",
+            color: "white",
+            cursor: "pointer",
+            fontWeight: 900,
+          }}
+        >
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          style={{
+            padding: "10px 12px",
+            borderRadius: 10,
+            border: "1px solid rgba(253,54,110,0.35)",
+            background: "rgba(253,54,110,0.15)",
+            color: "white",
+            cursor: "pointer",
+            fontWeight: 900,
+          }}
+        >
+          Salvar
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function Calendario({
   agendamentos,
   onSelecionarDia,
@@ -260,10 +406,36 @@ function Calendario({
 }
 
 export default function Dashboard() {
-  const { carregando } = useSessaoBarbearia();
-  const { usuario, logout } = useSessaoBarbearia();
-  const [barbearia, setBarbearia] = useState(null);
+  const { slug } = useParams();
+  const navigate = useNavigate();
+  const { carregando, usuario, logout, barbearia, barbeariaId } = useSessaoBarbearia();
   const [aba, setAba] = useState("estatisticas");
+  const [carregandoDados, setCarregandoDados] = useState(true);
+  const [erroCarregamento, setErroCarregamento] = useState(null);
+
+  // Guard clause: se não tem slug, impede qualquer render/call perigosa
+  useEffect(() => {
+    if (!slug) {
+      navigate("/login", { replace: true });
+    }
+  }, [slug, navigate]);
+
+  if (!slug) {
+    return (
+      <main style={{
+        minHeight: "100vh",
+        padding: 24,
+        color: "white",
+        background: "radial-gradient(900px circle at 10% 10%, rgba(253,54,110,0.18), transparent 40%), radial-gradient(700px circle at 90% 0%, rgba(253,166,60,0.12), transparent 45%), rgba(0,0,0,0.5)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}>
+        <h1 style={{ margin: 0, fontSize: 32, fontWeight: 900 }}>Carregando...</h1>
+      </main>
+    );
+  }
+
 
   // Dados carregados do Appwrite
   const [agendamentos, setAgendamentos] = useState([]);
@@ -274,36 +446,31 @@ export default function Dashboard() {
   useEffect(() => {
     let mounted = true;
     async function carregar() {
-      // load barbearia if not already loaded
-      if (!barbearia) {
-        try {
-          const user = await account.get();
-          const barbeariaDocs = await databases.listDocuments(
-            DB_ID,
-            COLLECTIONS.barbearias,
-            [Query.equal("user_id", user.$id)]
-          );
-          const barbeariaDoc = barbeariaDocs?.documents?.[0];
-          if (!barbeariaDoc) throw new Error("Barbearia não encontrada para o usuário");
-          if (!mounted) return;
-          setBarbearia(barbeariaDoc);
-        } catch (err) {
-          console.error("Erro ao buscar barbearia:", err);
-          setBarbearia(null);
-          return;
-        }
-      }
-
-      if (!barbearia?.$id) {
-        setAgendamentos([]);
-        setClientes([]);
-        setServicosState([]);
-        setPromocoes([]);
-        return;
-      }
+      setCarregandoDados(true);
+      setErroCarregamento(null);
 
       try {
-        const barbeariaId = barbearia.$id;
+        // Valida se o slug da URL corresponde à barbearia do usuário
+        const user = await account.get();
+        const barbeariaDocs = await databases.listDocuments(
+          DB_ID,
+          COLLECTIONS.barbearias,
+          [Query.equal("user_id", user.$id)]
+        );
+        const barbeariaDoc = barbeariaDocs?.documents?.[0];
+        if (!barbeariaDoc) throw new Error("Barbearia não encontrada para o usuário");
+
+        // Verifica se o slug da URL bate com o slug da barbearia
+        if (barbeariaDoc.slug !== slug) {
+          navigate(`/dashboard/${barbeariaDoc.slug}`, { replace: true });
+          return;
+        }
+
+        if (!mounted) return;
+        setBarbearia(barbeariaDoc);
+
+        // Carrega os dados da barbearia usando barbeariaDoc (não o estado)
+        const barbeariaId = barbeariaDoc.$id;
         const COL_AGEND = COLLECTIONS.agendamentos;
         const COL_CLIENTES = COLLECTIONS.clientes;
         const COL_SERVICOS = COLLECTIONS.servicos;
@@ -324,8 +491,13 @@ export default function Dashboard() {
         setAgendamentos(ag?.documents ?? []);
         setClientes(cl?.documents ?? []);
         setServicosState(sv?.documents ?? []);
+        setCarregandoDados(false);
       } catch (err) {
         console.error("Dashboard carregar() erro:", err);
+        if (!mounted) return;
+        setErroCarregamento(err?.message || "Erro ao carregar dados");
+        setBarbearia(null);
+        setCarregandoDados(false);
       }
     }
 
@@ -333,9 +505,67 @@ export default function Dashboard() {
     return () => {
       mounted = false;
     };
-  }, [barbearia]);
+  }, [slug, navigate]);
 
+  const [modalServico, setModalServico] = useState({ aberto: false, servico: null });
   const [modalDia, setModalDia] = useState({ aberto: false, data: null });
+
+  const salvarServico = useCallback(
+    async (dados) => {
+      if (!barbearia) return;
+
+      try {
+        if (modalServico.servico?.$id) {
+          // Editar
+          await databases.updateDocument(
+            DB_ID,
+            COLLECTIONS.servicos,
+            modalServico.servico.$id,
+            dados
+          );
+        } else {
+          // Criar novo
+          await databases.createDocument(
+            DB_ID,
+            COLLECTIONS.servicos,
+            "unique()",
+            { ...dados, barbearia_id: barbearia.$id }
+          );
+        }
+
+        // Recarrega serviços
+        const sv = await databases.listDocuments(DB_ID, COLLECTIONS.servicos, [
+          Query.equal("barbearia_id", barbearia.$id),
+        ]);
+        setServicosState(sv?.documents ?? []);
+        setModalServico({ aberto: false, servico: null });
+      } catch (err) {
+        console.error("Erro ao salvar serviço:", err);
+        alert("Erro ao salvar serviço: " + (err?.message || err));
+      }
+    },
+    [barbearia, modalServico.servico]
+  );
+
+  const deletarServico = useCallback(
+    async (servicoId) => {
+      if (!barbearia || !window.confirm("Tem certeza que deseja deletar este serviço?")) return;
+
+      try {
+        await databases.deleteDocument(DB_ID, COLLECTIONS.servicos, servicoId);
+
+        // Recarrega serviços
+        const sv = await databases.listDocuments(DB_ID, COLLECTIONS.servicos, [
+          Query.equal("barbearia_id", barbearia.$id),
+        ]);
+        setServicosState(sv?.documents ?? []);
+      } catch (err) {
+        console.error("Erro ao deletar serviço:", err);
+        alert("Erro ao deletar serviço: " + (err?.message || err));
+      }
+    },
+    [barbearia]
+  );
   const agendamentosDoDia = useMemo(() => {
     if (!modalDia.data) return [];
     return agendamentos
@@ -348,9 +578,18 @@ export default function Dashboard() {
     const ativos = agendamentos.filter((a) => a.status === "ativo").length;
     const cancelados = agendamentos.filter((a) => a.status === "cancelado").length;
     const concluidos = agendamentos.filter((a) => a.status === "concluido").length;
-    const faturamento = 0; // será calculado com preços/preço promo
-    return { total, ativos, cancelados, concluidos, faturamento };
-  }, [agendamentos]);
+    const totalClientes = clientes.length;
+    
+    // Calcula faturamento (supondo que agendamentos tem preço)
+    const faturamento = agendamentos
+      .filter((a) => a.status === "concluido")
+      .reduce((sum, a) => sum + (parseFloat(a.preco) || 0), 0);
+    
+    // Dias com agendamentos
+    const diasComAgendamentos = new Set(agendamentos.map((a) => a.data)).size;
+    
+    return { total, ativos, cancelados, concluidos, faturamento, totalClientes, diasComAgendamentos };
+  }, [agendamentos, clientes]);
 
   const tAba = {
     estatisticas: "Estatísticas",
@@ -451,8 +690,30 @@ export default function Dashboard() {
                 </div>
                 <div style={{ fontSize: 22, fontWeight: 1000 }}>{tAba[aba]}</div>
               </div>
-              <div style={{ color: "rgba(255,255,255,0.70)", fontSize: 13, fontWeight: 800 }}>
-                {usuario?.email || "—"}
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <button
+                  onClick={() => {
+                    const linkUnico = `${window.location.origin}/barbearia/${barbearia?.slug}`;
+                    navigator.clipboard.writeText(linkUnico);
+                    alert("Link copiado para a área de transferência!");
+                  }}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(242,183,5,0.35)",
+                    background: "rgba(242,183,5,0.10)",
+                    color: "white",
+                    cursor: "pointer",
+                    fontWeight: 900,
+                    fontSize: 13,
+                  }}
+                  title="Copiar link único para compartilhar com clientes"
+                >
+                  📋 Copiar link
+                </button>
+                <div style={{ color: "rgba(255,255,255,0.70)", fontSize: 13, fontWeight: 800 }}>
+                  {usuario?.email || "—"}
+                </div>
               </div>
             </div>
           </header>
@@ -476,14 +737,26 @@ export default function Dashboard() {
                 <div style={{ fontSize: 28, fontWeight: 1000, marginTop: 6 }}>{metrics.concluidos}</div>
               </Card>
 
-              <div style={{ gridColumn: "1 / -1" }}>
-                <Card variante="rosa">
-                  <div style={{ fontWeight: 1000, marginBottom: 6 }}>Resumo</div>
-                  <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 14, lineHeight: 1.4 }}>
-                    Métricas serão calculadas com os dados reais do Appwrite: faturamento por serviço/horário e aplicação de promoções.
-                  </div>
-                </Card>
-              </div>
+              <Card variante="rosa">
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", fontWeight: 800 }}>Total de clientes</div>
+                <div style={{ fontSize: 28, fontWeight: 1000, marginTop: 6 }}>{metrics.totalClientes}</div>
+              </Card>
+              <Card>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", fontWeight: 800 }}>Dias com agendamentos</div>
+                <div style={{ fontSize: 28, fontWeight: 1000, marginTop: 6 }}>{metrics.diasComAgendamentos}</div>
+              </Card>
+              <Card>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", fontWeight: 800 }}>Faturamento</div>
+                <div style={{ fontSize: 24, fontWeight: 1000, marginTop: 6 }}>
+                  R$ {metrics.faturamento.toFixed(2).replace(".", ",")}
+                </div>
+              </Card>
+              <Card variante="rosa">
+                <div style={{ fontWeight: 1000, marginBottom: 6 }}>Resumo</div>
+                <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 14, lineHeight: 1.4 }}>
+                  Você tem {metrics.total} agendamentos com {metrics.ativos} ativos.
+                </div>
+              </Card>
             </section>
           ) : null}
 
@@ -578,12 +851,20 @@ export default function Dashboard() {
           {aba === "servicos" ? (
             <section style={{ display: "grid", gap: 12 }}>
               <Card>
-                <div style={{ fontWeight: 1000, marginBottom: 8 }}>Lista de serviços</div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
+                  <div style={{ fontWeight: 1000, marginBottom: 0 }}>Lista de serviços</div>
+                  <Botao
+                    onClick={() => setModalServico({ aberto: true, servico: null })}
+                    style={{ padding: "8px 12px", fontSize: 13 }}
+                  >
+                    + Adicionar Serviço
+                  </Botao>
+                </div>
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
                       <tr>
-                        {["Serviço", "Duração", "Preço"].map((h) => (
+                        {["Serviço", "Duração", "Preço", "Ações"].map((h) => (
                           <th
                             key={h}
                             style={{
@@ -602,11 +883,44 @@ export default function Dashboard() {
                     </thead>
                     <tbody>
                       {servicosState.map((s) => (
-                        <tr key={s.id}>
+                        <tr key={s.$id}>
                           <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{s.nome}</td>
                           <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{s.duracaoMin} min</td>
                           <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                             R$ {s.preco}
+                          </td>
+                          <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                            <button
+                              onClick={() => setModalServico({ aberto: true, servico: s })}
+                              style={{
+                                padding: "6px 10px",
+                                borderRadius: 8,
+                                border: "1px solid rgba(253,166,60,0.35)",
+                                background: "rgba(253,166,60,0.08)",
+                                color: "rgba(253,166,60,1)",
+                                cursor: "pointer",
+                                fontWeight: 900,
+                                fontSize: 12,
+                                marginRight: 6,
+                              }}
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => deletarServico(s.$id)}
+                              style={{
+                                padding: "6px 10px",
+                                borderRadius: 8,
+                                border: "1px solid rgba(255,100,100,0.35)",
+                                background: "rgba(255,100,100,0.08)",
+                                color: "rgba(255,100,100,1)",
+                                cursor: "pointer",
+                                fontWeight: 900,
+                                fontSize: 12,
+                              }}
+                            >
+                              Deletar
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -683,6 +997,18 @@ export default function Dashboard() {
           ) : null}
         </main>
       </div>
+
+      <Modal
+        aberto={modalServico.aberto}
+        titulo={modalServico.servico ? "Editar serviço" : "Adicionar serviço"}
+        onFechar={() => setModalServico({ aberto: false, servico: null })}
+      >
+        <FormServicoModal
+          servico={modalServico.servico}
+          onSalvar={salvarServico}
+          onCancelar={() => setModalServico({ aberto: false, servico: null })}
+        />
+      </Modal>
 
       <Modal
         aberto={modalDia.aberto}

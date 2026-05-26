@@ -9,26 +9,22 @@
 
   background: var(--bg);
 
-
   @media (max-width: 1024px) {
     font-size: 16px;
   }
 }
 
-
-
 body {
-background: var(--bg);
-  display: flex;
-  place-items: center;
+  background: var(--bg);
+  margin: 0;
+  padding: 0;
   min-height: 100vh;
   min-width: 320px;
 }
 
 #root {
-  
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
+  width: 100%;
+  height: auto;
+  margin: 0;
+  text-align: left;
 }

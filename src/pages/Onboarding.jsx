@@ -116,7 +116,14 @@ function Campo({ label, children }) {
 }
 
 export default function Onboarding() {
-  const { barbearia } = useSessaoBarbearia();
+  const { carregando, usuario, barbearia } = useSessaoBarbearia();
+useEffect(() => {
+  if (carregando) return;
+  if (!usuario) {
+    navigate("/login", { replace: true });
+    return;
+  }
+}, [carregando, usuario, navigate]);
   const navigate = useNavigate();
 
   const etapas = useMemo(
@@ -218,7 +225,12 @@ export default function Onboarding() {
     } catch (err) {
       console.error("Onboarding finalizar() erro:", err);
     } finally {
-      navigate("/dashboard");
+      const targetSlug = barbearia?.slug;
+        if (!targetSlug) {
+          console.error('Slug da barbearia ausente após onboarding');
+          return;
+        }
+        navigate(`/dashboard/${targetSlug}`);
     }
   }
 

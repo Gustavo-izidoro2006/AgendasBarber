@@ -14,11 +14,11 @@ export default function App() {
 
           {/* Rotas privadas */}
           <Route element={<RotaProtegida />}>
-            <Route path="/dashboard/*" element={<RotasPrivadas />} />
+            <Route path="/dashboard/:slug/*" element={<RotasPrivadas />} />
           </Route>
 
           {/* Redirects básicos */}
-          <Route path="/home" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/home" element={<Navigate to="/login" replace />} />
         </Routes>
       </SessaoBarbeariaProvider>
     </BrowserRouter>
