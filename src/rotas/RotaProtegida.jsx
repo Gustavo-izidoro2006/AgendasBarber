@@ -8,7 +8,7 @@ export default function RotaProtegida() {
   const [setupLoading, setSetupLoading] = useState(true);
   const [setupComplete, setSetupComplete] = useState(false);
 
-  // Verify onboarding status after authentication and barbearia is loaded
+  // Mantido para compatibilidade; o fluxo multi-tenant agora é coberto por BarbeariaGuard.
   useEffect(() => {
     if (carregando || !usuario) return;
     if (!barbearia) {

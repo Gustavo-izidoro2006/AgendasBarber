@@ -11,6 +11,9 @@ export function useSessaoBarbearia() {
 }
 
 export function SessaoBarbeariaProvider({ children }) {
+  // Compatibilidade: este provider continua existindo, mas o fluxo principal
+  // (useBarbearia) agora será usado no guard/rotas.
+
   const navigate = useNavigate();
 
   const [usuario, setUsuario] = useState(null);
@@ -82,6 +85,8 @@ export function SessaoBarbeariaProvider({ children }) {
         if (barbeariaAtiva) {
           navigate(`/dashboard/${barbeariaAtiva.slug}`);
         } else {
+          // onboarding multi-tenant será decidido pelo guard (RotaProtegida)
+          // mantendo o fluxo atual apenas como fallback
           navigate("/dashboard/onboarding");
         }
       } catch (err) {
