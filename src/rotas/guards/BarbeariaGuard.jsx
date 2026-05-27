@@ -1,33 +1,30 @@
-import { Navigate, Outlet } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
-import { useSessaoBarbearia } from "../../contextos/SessaoBarbeariaContexto";
+import { Navigate, Outlet, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { useBarbearia } from "../../contextos/BarbeariaContexto";
 import { databases, COLLECTIONS, DB_ID, Query } from "../../lib/appwrite";
 
 export default function BarbeariaGuard() {
-  const { carregando: carregandoSessao, usuario } = useSessaoBarbearia();
   const { barbearia, carregando: carregandoBarbearia } = useBarbearia();
+  const { slug } = useParams();
 
   const [setupLoading, setSetupLoading] = useState(true);
   const [setupComplete, setSetupComplete] = useState(false);
 
-  const barbeariaId = barbearia?.$id;
-  const slug = useMemo(() => barbearia?.slug, [barbearia]);
-
   useEffect(() => {
+    if (carregandoBarbearia) return;
+    if (!barbearia?.$id || !DB_ID) {
+      setSetupComplete(false);
+      setSetupLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
-    async function check() {
-      setSetupLoading(true);
+    async function checkSetup() {
       try {
-        if (!usuario || carregandoSessao || carregandoBarbearia) return;
-        if (!barbeariaId || !DB_ID) {
-          if (!cancelled) {
-            setSetupComplete(false);
-          }
-          return;
-        }
+        const barbeariaId = barbearia.$id;
 
+        // Verifica as 3 condições do setup em paralelo
         const [horariosRes, configRes, servicosRes] = await Promise.all([
           databases.listDocuments(DB_ID, COLLECTIONS.horarios, [
             Query.equal("barbearia_id", barbeariaId),
@@ -43,32 +40,35 @@ export default function BarbeariaGuard() {
           ]),
         ]);
 
+        if (cancelled) return;
+
         const hasHorarios = !!horariosRes?.documents?.length;
-        const hasConfig = !!configRes?.documents?.length;
-        const hasServico = !!servicosRes?.documents?.length;
+        const hasServicos = !!servicosRes?.documents?.length;
+        const configDoc = configRes?.documents?.[0] ?? null;
+        const hasConfig = !!configDoc;
 
-        // opcional: se o schema tiver onboarding_completo, usar preferencialmente
-        const configDoc = configRes?.documents?.[0];
-        const onboardingCompleto = configDoc?.onboarding_completo;
+        // Usa o flag onboarding_completo se disponível, senão verifica pelas 3 condições
+        const onboardingCompleto =
+          configDoc?.onboarding_completo === true
+            ? true
+            : hasHorarios && hasConfig && hasServicos;
 
-        const complete = hasHorarios && hasConfig && hasServico && (onboardingCompleto === true || onboardingCompleto === undefined);
-
-        if (!cancelled) setSetupComplete(complete);
-      } catch {
-        // evita loop: se houver erro de backend, não força redirect infinito
+        setSetupComplete(onboardingCompleto);
+      } catch (e) {
+        if (e?.code !== 401 && e?.code !== 400) {
+          console.error("BarbeariaGuard checkSetup erro:", e);
+        }
         if (!cancelled) setSetupComplete(false);
       } finally {
         if (!cancelled) setSetupLoading(false);
       }
     }
 
-    check();
-    return () => {
-      cancelled = true;
-    };
-  }, [carregandoSessao, carregandoBarbearia, usuario, barbeariaId]);
+    checkSetup();
+    return () => { cancelled = true; };
+  }, [carregandoBarbearia, barbearia]);
 
-  if (carregandoSessao || carregandoBarbearia || setupLoading) {
+  if (carregandoBarbearia || setupLoading) {
     return (
       <main style={{ padding: 24, color: "white" }}>
         <h1>Carregando...</h1>
@@ -76,17 +76,16 @@ export default function BarbeariaGuard() {
     );
   }
 
-  if (!usuario) return <Navigate to="/login" replace />;
-
-  if (!barbeariaId) {
-    // sem barbearia => onboarding
-    return <Navigate to={`/dashboard/onboarding`} replace />;
+  // Barbearia não encontrada (não deve chegar aqui — RotaProtegida já cobre)
+  if (!barbearia) {
+    return <Navigate to="/onboarding" replace />;
   }
 
+  // Onboarding incompleto → redireciona para /dashboard/[slug]/onboarding
   if (!setupComplete) {
-    return <Navigate to={`/dashboard/${slug}/onboarding`} replace />;
+    const destSlug = barbearia.slug ?? slug;
+    return <Navigate to={`/dashboard/${destSlug}/onboarding`} replace />;
   }
 
   return <Outlet />;
 }
-

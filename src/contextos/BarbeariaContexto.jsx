@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { databases, COLLECTIONS, DB_ID, Query, getAccount } from "../lib/appwrite";
 
 const BarbeariaContexto = createContext(null);
@@ -14,64 +14,44 @@ export function BarbeariaProvider({ children }) {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState(null);
 
+  const carregar = useCallback(async () => {
+    setCarregando(true);
+    setErro(null);
+    try {
+      // getAccount() retorna null para guests — tratado silenciosamente no appwrite.js
+      const user = await getAccount();
+
+      if (!user || !DB_ID) {
+        setBarbearia(null);
+        return;
+      }
+
+      const resp = await databases.listDocuments(DB_ID, COLLECTIONS.barbearias, [
+        Query.equal("user_id", user.$id),
+        Query.limit(1),
+      ]);
+
+      setBarbearia(resp?.documents?.[0] ?? null);
+    } catch (e) {
+      // 401 = guest, silencioso. Outros erros são logados.
+      if (e?.code !== 401) {
+        console.error("BarbeariaContexto erro:", e);
+        setErro(e);
+      }
+      setBarbearia(null);
+    } finally {
+      setCarregando(false);
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
-
-    async function carregar() {
-      setCarregando(true);
-      setErro(null);
-      try {
-        const user = await getAccount();
-
-        if (!user) {
-          if (!cancelled) {
-            setBarbearia(null);
-            setCarregando(false);
-          }
-          return;
-        }
-
-        if (!DB_ID) {
-          if (!cancelled) {
-            setBarbearia(null);
-            setCarregando(false);
-          }
-          return;
-        }
-
-        const resp = await databases.listDocuments(DB_ID, COLLECTIONS.barbearias, [
-          Query.equal("user_id", user.$id),
-          Query.limit(1),
-        ]);
-
-        const doc = resp?.documents?.[0] ?? null;
-
-        if (cancelled) return;
-
-        if (doc) {
-          setBarbearia(doc);
-        } else {
-          setBarbearia(null);
-        }
-      } catch (e) {
-        if (cancelled) return;
-        if (e?.code === 401) {
-          // guest — sem erro no console, sem estado de erro
-          setBarbearia(null);
-        } else {
-          setErro(e);
-          setBarbearia(null);
-        }
-      } finally {
-        if (!cancelled) setCarregando(false);
-      }
-    }
-
-    carregar();
-    return () => {
-      cancelled = true;
+    const run = async () => {
+      await carregar();
     };
-  }, []);
+    run();
+    return () => { cancelled = true; };
+  }, [carregar]);
 
   const valor = useMemo(
     () => ({
@@ -79,8 +59,9 @@ export function BarbeariaProvider({ children }) {
       carregando,
       erro,
       setBarbearia,
+      recarregarBarbearia: carregar, // útil após onboarding
     }),
-    [barbearia, carregando, erro]
+    [barbearia, carregando, erro, carregar]
   );
 
   return <BarbeariaContexto.Provider value={valor}>{children}</BarbeariaContexto.Provider>;

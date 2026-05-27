@@ -2,7 +2,8 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 
 import { useNavigate } from "react-router-dom";
 import { useSessaoBarbearia } from "../contextos/SessaoBarbeariaContexto";
-import { account, databases, COLLECTIONS, DB_ID, Query } from "../lib/appwrite";
+import { useBarbearia } from "../contextos/BarbeariaContexto";
+import { account, databases, COLLECTIONS, DB_ID, Query, getAccount } from "../lib/appwrite";
 import {
   criarServico,
 } from "../services/servicosService";
@@ -118,7 +119,8 @@ function Campo({ label, children }) {
 }
 
 export default function Onboarding() {
-  const { carregando, usuario, barbearia } = useSessaoBarbearia();
+  const { carregando, usuario } = useSessaoBarbearia();
+  const { barbearia, recarregarBarbearia } = useBarbearia();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -312,7 +314,8 @@ export default function Onboarding() {
 
       // 6) Redirecionar usando o slug gerado com sucesso
       if (slug) {
-        navigate(`/dashboard/${slug}`);
+        await recarregarBarbearia();
+      navigate(`/dashboard/${slug}`);
       } else {
         console.error("Não foi possível redirecionar: slug não encontrado.");
       }

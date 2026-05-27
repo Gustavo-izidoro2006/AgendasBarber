@@ -8,14 +8,15 @@ export default function RotasPrivadas() {
 
   return (
     <Routes>
-      <Route path="/dashboard/:slug" element={<Dashboard />} />
-      <Route path="/dashboard/:slug/onboarding" element={<Onboarding />} />
-      <Route path="/dashboard/:slug/servicos" element={<Servicos />} />
-      {/* fallback para qualquer subpath não mapeado */}
+      {/* Paths relativos ao /dashboard/:slug/* do pai */}
+      <Route index element={<Dashboard />} />
+      <Route path="onboarding" element={<Onboarding />} />
+      <Route path="servicos" element={<Servicos />} />
+      {/* fallback */}
       <Route
         path="*"
-        element={<Navigate to={slug ? `/dashboard/${slug}` : "/login"} replace />} />
-
+        element={<Navigate to={slug ? `/dashboard/${slug}` : "/login"} replace />}
+      />
     </Routes>
   );
 }
