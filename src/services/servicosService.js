@@ -111,6 +111,8 @@ export async function criarServico(dados) {
     const criado = await createDocument("servicos", ID.unique(), payload);
     return criado;
   } catch (erro) {
+    // 409 = documento já existe (onboarding reexecutado) — ignora silenciosamente
+    if (erro?.code === 409) return null;
     console.error("Erro ao criar serviço:", erro);
     throw new Error("Falha ao criar serviço. Verifique os dados e tente novamente.");
   }
