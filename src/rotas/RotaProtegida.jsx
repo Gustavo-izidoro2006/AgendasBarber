@@ -1,18 +1,18 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useSessaoBarbearia } from "../contextos/SessaoBarbeariaContexto";
+import { useBarbearia } from "../contextos/BarbeariaContexto";
 import { databases, COLLECTIONS, DB_ID, Query } from "../lib/appwrite";
 
 export default function RotaProtegida() {
-  const { carregando, usuario, barbearia } = useSessaoBarbearia();
+  const { carregando: carregandoSessao, usuario } = useSessaoBarbearia();
+  const { barbearia, carregando: carregandoBarbearia } = useBarbearia();
   const [setupLoading, setSetupLoading] = useState(true);
   const [setupComplete, setSetupComplete] = useState(false);
 
-  // Mantido para compatibilidade; o fluxo multi-tenant agora é coberto por BarbeariaGuard.
   useEffect(() => {
-    if (carregando || !usuario) return;
+    if (carregandoSessao || !usuario) return;
     if (!barbearia) {
-      // No barbearia document yet → cannot be complete
       setSetupComplete(false);
       setSetupLoading(false);
       return;
@@ -42,14 +42,9 @@ export default function RotaProtegida() {
           setSetupComplete(hasHorarios && hasConfig && hasServico);
         }
       } catch (e) {
-        if (e.code === 401) {
-          console.error('401 Unauthorized accessing collection');
-          setSetupComplete(false);
-          // Keep loading false to show error screen instead of looping
-          setSetupLoading(false);
-          return;
+        if (e?.code !== 401 && e?.code !== 400) {
+          console.error("Erro ao verificar onboarding", e);
         }
-        console.error("Erro ao verificar onboarding", e);
         if (!cancelled) setSetupComplete(false);
       } finally {
         if (!cancelled) setSetupLoading(false);
@@ -59,9 +54,9 @@ export default function RotaProtegida() {
     return () => {
       cancelled = true;
     };
-  }, [carregando, usuario, barbearia]);
+  }, [carregandoSessao, carregandoBarbearia, usuario, barbearia]);
 
-  if (carregando || setupLoading) {
+  if (carregandoSessao || carregandoBarbearia || setupLoading) {
     return (
       <main style={{ padding: 24, color: "white" }}>
         <h1>Carregando...</h1>
@@ -73,7 +68,6 @@ export default function RotaProtegida() {
     return <Navigate to="/login" replace />;
   }
 
-  // Redirect if onboarding data missing or barbearia not loaded
   if (!setupComplete) {
     return <Navigate to="/onboarding" replace />;
   }

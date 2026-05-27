@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { databases, COLLECTIONS, DB_ID, Query, getAccount } from "../lib/appwrite";
 
 const BarbeariaContexto = createContext(null);
@@ -11,8 +10,6 @@ export function useBarbearia() {
 }
 
 export function BarbeariaProvider({ children }) {
-  const navigate = useNavigate();
-
   const [barbearia, setBarbearia] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState(null);
@@ -25,6 +22,14 @@ export function BarbeariaProvider({ children }) {
       setErro(null);
       try {
         const user = await getAccount();
+
+        if (!user) {
+          if (!cancelled) {
+            setBarbearia(null);
+            setCarregando(false);
+          }
+          return;
+        }
 
         if (!DB_ID) {
           if (!cancelled) {
@@ -45,21 +50,18 @@ export function BarbeariaProvider({ children }) {
 
         if (doc) {
           setBarbearia(doc);
-          // não redireciona aqui; a rota é decidida pelo guard
         } else {
           setBarbearia(null);
         }
       } catch (e) {
         if (cancelled) return;
-        // quando não autenticado (401), não poluir erro; só zera barbearia
         if (e?.code === 401) {
-          setErro(null);
+          // guest — sem erro no console, sem estado de erro
           setBarbearia(null);
         } else {
           setErro(e);
           setBarbearia(null);
         }
-        // (aqui não redirecionamos para evitar loops)
       } finally {
         if (!cancelled) setCarregando(false);
       }
@@ -69,7 +71,7 @@ export function BarbeariaProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [navigate]);
+  }, []);
 
   const valor = useMemo(
     () => ({
@@ -77,11 +79,9 @@ export function BarbeariaProvider({ children }) {
       carregando,
       erro,
       setBarbearia,
-      recarregar: undefined,
     }),
     [barbearia, carregando, erro]
   );
 
   return <BarbeariaContexto.Provider value={valor}>{children}</BarbeariaContexto.Provider>;
 }
-
