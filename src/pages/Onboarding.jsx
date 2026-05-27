@@ -275,13 +275,6 @@ export default function Onboarding() {
         const dia_semana = mapDiaSemana[ch];
         if (!dia_semana) continue;
 
-        const existing = await databases.listDocuments(DB_ID, COLLECTIONS.horarios, [
-          Query.equal("barbearia_id", barbeariaId),
-          Query.equal("dia_semana", dia_semana),
-          Query.limit(1),
-        ]);
-        const existingDoc = existing?.documents?.[0] ?? null;
-
         const horariosPayload = {
           barbearia_id: barbeariaId,
           dia_semana,
@@ -290,14 +283,25 @@ export default function Onboarding() {
           ativo: "true",
         };
 
-        if (existingDoc?.$id) {
-          await databases.updateDocument(DB_ID, COLLECTIONS.horarios, existingDoc.$id, horariosPayload);
+        // Tenta buscar doc existente — query pode falhar se barbearia_id for Relationship
+        let existingHorario = null;
+        try {
+          const existing = await databases.listDocuments(DB_ID, COLLECTIONS.horarios, [
+            Query.equal("barbearia_id", barbeariaId),
+            Query.equal("dia_semana", dia_semana),
+            Query.limit(1),
+          ]);
+          existingHorario = existing?.documents?.[0] ?? null;
+        } catch { /* query falhou, tenta criar direto */ }
+
+        if (existingHorario?.$id) {
+          await databases.updateDocument(DB_ID, COLLECTIONS.horarios, existingHorario.$id, horariosPayload);
         } else {
           try {
             await databases.createDocument(DB_ID, COLLECTIONS.horarios, ID.unique(), horariosPayload);
           } catch (err409) {
-            // 409 = já existe, ignora e continua
             if (err409?.code !== 409) throw err409;
+            // 409 = já existe mas query não achou — ignora e continua
           }
         }
       }
@@ -343,8 +347,8 @@ export default function Onboarding() {
 
       // 6) Redirecionar usando o slug gerado com sucesso
       if (slug) {
-        await recarregarBarbearia();
-      navigate(`/dashboard/${slug}`);
+        // Navega direto — BarbeariaContexto recarrega automaticamente ao montar o dashboard
+        navigate(`/dashboard/${slug}`, { replace: true });
       } else {
         console.error("Não foi possível redirecionar: slug não encontrado.");
       }

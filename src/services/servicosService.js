@@ -1,4 +1,4 @@
-import { Query } from "appwrite";
+import { Query, ID } from "appwrite";
 import { listCollection, getDocument, createDocument, updateDocument, deleteDocument, DB_ID, COLLECTIONS } from "../lib/appwrite";
 
 /**
@@ -22,10 +22,7 @@ function obrigatorio(valor, nome) {
 function validarDadosServico(dados, isInclusiveBarbeariaId = true) {
   obrigatorio(dados.nome, "nome");
   
-  // descricao, valor, duracao sao opcionais mas se presentes devem ser validos
-  if (dados.descricao !== undefined && dados.descricao !== null) {
-    obrigatorio(dados.descricao, "descricao");
-  }
+  // descricao é opcional — string vazia é aceita
   
   if (dados.valor !== undefined && dados.valor !== null && dados.valor !== "") {
     const valorNum = Number(dados.valor);
@@ -111,7 +108,7 @@ export async function criarServico(dados) {
       ...dadosValidados,
       criado_em: new Date().toISOString(),
     };
-    const criado = await createDocument("servicos", "unique()", payload);
+    const criado = await createDocument("servicos", ID.unique(), payload);
     return criado;
   } catch (erro) {
     console.error("Erro ao criar serviço:", erro);

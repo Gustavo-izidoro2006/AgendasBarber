@@ -1,4 +1,4 @@
-import { Query } from "appwrite";
+import { Query, ID } from "appwrite";
 import { listCollection, getDocument, createDocument, updateDocument, deleteDocument } from "../lib/appwrite";
 
 function obrigatorio(valor, nome) {
@@ -81,7 +81,7 @@ export async function criarCliente({ barbearia_id, nome, telefone, email, observ
       criado_em: new Date().toISOString(),
     };
 
-    const created = await createDocument("clientes", "unique()", payload);
+    const created = await createDocument("clientes", ID.unique(), payload);
     return created;
   } catch (err) {
     console.error("Erro ao criar cliente:", err);

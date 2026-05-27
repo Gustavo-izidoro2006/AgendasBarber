@@ -1,4 +1,4 @@
-import { Query } from "appwrite";
+import { Query, ID } from "appwrite";
 import {
   listCollection,
   getDocument,
@@ -75,7 +75,7 @@ export async function criarAgendamento({
 
     // Ajuste: nosso helper retorna apenas campos do schema que importam.
     // Aqui persistimos na collection.
-    const created = await createDocument("agendamentos", "unique()", payload);
+    const created = await createDocument("agendamentos", ID.unique(), payload);
     return created;
   } catch (err) {
     console.error("Erro ao criar agendamento:", err);

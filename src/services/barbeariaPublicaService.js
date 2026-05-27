@@ -1,4 +1,4 @@
-import { Query } from "appwrite";
+import { Query, ID } from "appwrite";
 import { listCollection, createDocument } from "../lib/appwrite";
 
 function obrigatorio(valor, nome) {
@@ -52,7 +52,7 @@ export async function criarAgendamento({
     criado_em: new Date().toISOString(),
   };
 
-  const created = await createDocument("agendamentos", "unique()", payload);
+  const created = await createDocument("agendamentos", ID.unique(), payload);
 
   return created;
 }
