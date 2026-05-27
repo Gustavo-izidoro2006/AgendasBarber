@@ -3,7 +3,8 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSessaoBarbearia } from "../contextos/SessaoBarbeariaContexto";
 import { useBarbearia } from "../contextos/BarbeariaContexto";
-import { account, databases, COLLECTIONS, DB_ID, Query, getAccount } from "../lib/appwrite";
+import { databases, COLLECTIONS, DB_ID, Query } from "../lib/appwrite";
+import { ID } from "appwrite";
 import {
   criarServico,
 } from "../services/servicosService";
@@ -167,16 +168,15 @@ export default function Onboarding() {
     // Substitua a sua função inteira por esta até o início do seu "return (" do HTML
   const finalizar = async () => {
     try {
-      // 1) Captura o usuário usando a nossa função segura do appwrite.js
-      const user = await getAccount();
+      // 1) Usa o usuário já autenticado do contexto — sem chamar getAccount() de novo
+      const user = usuario;
 
-      // Se o usuário não existir (retornou null), avisa e para a execução imediatamente
       if (!user) {
-        alert("Sua sessão expirou ou você não está logado. Faça login para continuar.");
-        return; 
+        // Fallback: não deveria chegar aqui pois RotaProtegida já garante autenticação
+        navigate("/login", { replace: true });
+        return;
       }
 
-      // Daqui para baixo o código original continua idêntico, pois agora temos a garantia do 'user'
       let barbeariaDoc = barbearia?.$id ? barbearia : null;
       let barbeariaId = barbeariaDoc?.$id ?? barbeariaDoc?.id ?? null;
       let slug = barbeariaDoc?.slug ?? barbearia?.slug ?? null;
@@ -200,7 +200,7 @@ export default function Onboarding() {
           .replace(/(^-|-$)/g, "");
         slug = baseSlug || "barbearia";
 
-        const created = await databases.createDocument(DB_ID, COLLECTIONS.barbearias, "unique()", {
+        const created = await databases.createDocument(DB_ID, COLLECTIONS.barbearias, ID.unique(), {
           nome: nomeAut,
           slug,
           email: user?.email ?? "",
@@ -216,11 +216,15 @@ export default function Onboarding() {
 
 
       // 2) Criar/atualizar `configuracoes_barbearia` (One-to-One)
-      const configDocs = await databases.listDocuments(DB_ID, COLLECTIONS.configuracoes, [
-        Query.equal("barbearia_id", barbeariaId),
-        Query.limit(1),
-      ]);
-      const configDoc = configDocs?.documents?.[0] ?? null;
+      // Busca doc existente — se a query falhar (ex: Relationship), trata no catch
+      let configDoc = null;
+      try {
+        const configDocs = await databases.listDocuments(DB_ID, COLLECTIONS.configuracoes, [
+          Query.equal("barbearia_id", barbeariaId),
+          Query.limit(1),
+        ]);
+        configDoc = configDocs?.documents?.[0] ?? null;
+      } catch { /* ignora erro de query — vai tentar criar abaixo */ }
 
       const configuracoesPayload = {
         barbearia_id: barbeariaId,
@@ -232,7 +236,21 @@ export default function Onboarding() {
       if (configDoc?.$id) {
         await databases.updateDocument(DB_ID, COLLECTIONS.configuracoes, configDoc.$id, configuracoesPayload);
       } else {
-        await databases.createDocument(DB_ID, COLLECTIONS.configuracoes, "unique()", configuracoesPayload);
+        try {
+          const novoConfig = await databases.createDocument(DB_ID, COLLECTIONS.configuracoes, ID.unique(), configuracoesPayload);
+          configDoc = novoConfig;
+        } catch (err409) {
+          // Se 409 — já existe mas a query não achou. Busca por listDocuments sem filtro de barbearia_id
+          if (err409?.code === 409) {
+            const all = await databases.listDocuments(DB_ID, COLLECTIONS.configuracoes, [Query.limit(25)]);
+            configDoc = all?.documents?.find(d => d.barbearia_id === barbeariaId || d.barbearia_id?.$id === barbeariaId) ?? null;
+            if (configDoc?.$id) {
+              await databases.updateDocument(DB_ID, COLLECTIONS.configuracoes, configDoc.$id, configuracoesPayload);
+            }
+          } else {
+            throw err409;
+          }
+        }
       }
 
       // 3) Criar documentos em `horarios_atendimento`
@@ -269,25 +287,36 @@ export default function Onboarding() {
           dia_semana,
           abertura,
           fechamento,
-          ativo: true,
+          ativo: "true",
         };
 
         if (existingDoc?.$id) {
           await databases.updateDocument(DB_ID, COLLECTIONS.horarios, existingDoc.$id, horariosPayload);
         } else {
-          await databases.createDocument(DB_ID, COLLECTIONS.horarios, "unique()", horariosPayload);
+          try {
+            await databases.createDocument(DB_ID, COLLECTIONS.horarios, ID.unique(), horariosPayload);
+          } catch (err409) {
+            // 409 = já existe, ignora e continua
+            if (err409?.code !== 409) throw err409;
+          }
         }
       }
 
       // 4) Criar documentos em `servicos`
+      console.log("[Onboarding] servicos:", servicos, "precos:", precos);
       for (const srv of servicos) {
-        const duracao = srv.duracaoMin ?? srv.duracao;
-        const valor = precos?.[srv.id] ?? srv.valor;
+        // duracaoMin vem do state de serviços, duracao é fallback
+        const duracao = srv.duracaoMin ?? srv.duracao ?? 30;
+        // precos é um objeto { [srv.id]: valor } preenchido na etapa de preços
+        const valorRaw = precos?.[srv.id];
+        const valor = valorRaw != null && valorRaw !== "" ? String(valorRaw) : "0";
+
+        if (!srv.nome?.trim()) continue; // pula serviços sem nome
 
         await criarServico({
-          nome: srv.nome,
+          nome: srv.nome.trim(),
           descricao: "",
-          valor: valor === "" || valor == null ? 0 : String(valor),
+          valor,
           duracao: String(duracao),
           status: "ativo",
           barbearia_id: barbeariaId,
