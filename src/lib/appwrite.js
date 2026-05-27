@@ -1,8 +1,8 @@
 import { Client, Account, Databases, Query } from "appwrite";
 
 const client = new Client()
-  .setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT || "https://sfo.cloud.appwrite.io/v1")
-  .setProject(import.meta.env.VITE_APPWRITE_PROJECT_ID || "6a0ddc980020842b9012");
+  .setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT)
+  .setProject(import.meta.env.VITE_APPWRITE_PROJECT_ID);
 
 const account = new Account(client);
 const databases = new Databases(client);
@@ -121,20 +121,10 @@ async function getAccount() {
   try {
     return await account.get();
   } catch (e) {
-    // se não autenticado/401, tenta fallback REST
+    // Se não estiver logado (erro 401), apenas retorna null amigavelmente
+    // Isso evita que o console fique inundado de erros vermelhos de fetch manual
     if (e?.code === 401 || e?.status === 401) {
-      const endpoint = import.meta.env.VITE_APPWRITE_ENDPOINT;
-      if (!endpoint) throw e;
-
-      const url = `${endpoint.replace(/\/$/, "")}/account`;
-      const res = await fetch(url, {
-        method: "GET",
-        headers: getFallbackHeaders(),
-        credentials: "include",
-      });
-
-      if (!res.ok) throw e;
-      return res.json();
+      return null;
     }
     throw e;
   }

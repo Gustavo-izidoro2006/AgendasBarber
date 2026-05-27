@@ -165,9 +165,16 @@ export default function Onboarding() {
     // Substitua a sua função inteira por esta até o início do seu "return (" do HTML
   const finalizar = async () => {
     try {
-      // 1) Garantir documento em `barbearias` e capturar barbearia.$id
-      const user = await account.get();
+      // 1) Captura o usuário usando a nossa função segura do appwrite.js
+      const user = await getAccount();
 
+      // Se o usuário não existir (retornou null), avisa e para a execução imediatamente
+      if (!user) {
+        alert("Sua sessão expirou ou você não está logado. Faça login para continuar.");
+        return; 
+      }
+
+      // Daqui para baixo o código original continua idêntico, pois agora temos a garantia do 'user'
       let barbeariaDoc = barbearia?.$id ? barbearia : null;
       let barbeariaId = barbeariaDoc?.$id ?? barbeariaDoc?.id ?? null;
       let slug = barbeariaDoc?.slug ?? barbearia?.slug ?? null;
@@ -204,6 +211,7 @@ export default function Onboarding() {
 
       if (!barbeariaId) throw new Error("barbeariaId não resolvido");
       if (!slug) throw new Error("slug da barbearia não resolvido");
+
 
       // 2) Criar/atualizar `configuracoes_barbearia` (One-to-One)
       const configDocs = await databases.listDocuments(DB_ID, COLLECTIONS.configuracoes, [
