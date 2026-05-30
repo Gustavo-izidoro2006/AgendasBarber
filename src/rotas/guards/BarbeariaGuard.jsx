@@ -1,7 +1,7 @@
 import { Navigate, Outlet, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useBarbearia } from "../../contextos/BarbeariaContexto";
-import { databases, COLLECTIONS, DB_ID, Query } from "../../lib/appwrite";
+import { databases, COLLECTIONS, DB_ID } from "../../lib/appwrite";
 
 export default function BarbeariaGuard() {
   const { barbearia, carregando: carregandoBarbearia } = useBarbearia();
@@ -22,36 +22,25 @@ export default function BarbeariaGuard() {
 
     async function checkSetup() {
       try {
-        const barbeariaId = barbearia.$id;
-
-        // Verifica as 3 condições do setup em paralelo
-        const [horariosRes, configRes, servicosRes] = await Promise.all([
-          databases.listDocuments(DB_ID, COLLECTIONS.horarios, [
-            Query.equal("barbearia_id", barbeariaId),
-            Query.limit(1),
-          ]),
-          databases.listDocuments(DB_ID, COLLECTIONS.configuracoes, [
-            Query.equal("barbearia_id", barbeariaId),
-            Query.limit(1),
-          ]),
-          databases.listDocuments(DB_ID, COLLECTIONS.servicos, [
-            Query.equal("barbearia_id", barbeariaId),
-            Query.limit(1),
-          ]),
-        ]);
+        // Busca direto pelo $id da barbearia em configuracoes
+        // Evita Query.equal("barbearia_id") que falha com Relationship
+        const configRes = await databases.listDocuments(
+          DB_ID,
+          COLLECTIONS.configuracoes,
+          [] // busca todos, filtra no cliente pelo barbearia_id
+        );
 
         if (cancelled) return;
 
-        const hasHorarios = !!horariosRes?.documents?.length;
-        const hasServicos = !!servicosRes?.documents?.length;
-        const configDoc = configRes?.documents?.[0] ?? null;
-        const hasConfig = !!configDoc;
+        // Procura o config doc desta barbearia
+        const configDoc = configRes?.documents?.find(
+          (d) =>
+            d.barbearia_id === barbearia.$id ||
+            d.barbearia_id?.$id === barbearia.$id
+        ) ?? null;
 
-        // Usa o flag onboarding_completo se disponível, senão verifica pelas 3 condições
-        const onboardingCompleto =
-          configDoc?.onboarding_completo === true
-            ? true
-            : hasHorarios && hasConfig && hasServicos;
+        // Se onboarding_completo === true, vai pro dashboard direto
+        const onboardingCompleto = configDoc?.onboarding_completo === true;
 
         setSetupComplete(onboardingCompleto);
       } catch (e) {
@@ -76,12 +65,10 @@ export default function BarbeariaGuard() {
     );
   }
 
-  // Barbearia não encontrada (não deve chegar aqui — RotaProtegida já cobre)
   if (!barbearia) {
     return <Navigate to="/onboarding" replace />;
   }
 
-  // Onboarding incompleto → redireciona para /dashboard/[slug]/onboarding
   if (!setupComplete) {
     const destSlug = barbearia.slug ?? slug;
     return <Navigate to={`/dashboard/${destSlug}/onboarding`} replace />;

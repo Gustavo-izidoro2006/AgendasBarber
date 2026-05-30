@@ -1,5 +1,5 @@
 import { Query, ID } from "appwrite";
-import { listCollection, createDocument } from "../lib/appwrite";
+import { listCollection, createDocument, databases, DB_ID, COLLECTIONS } from "../lib/appwrite";
 
 function obrigatorio(valor, nome) {
   if (valor === undefined || valor === null || valor === "") {
@@ -21,11 +21,55 @@ export async function buscarBarbeariaPorSlug(slug) {
 export async function buscarServicosDaBarbearia(barbeariaId) {
   obrigatorio(barbeariaId, "barbeariaId");
 
-  const resp = await listCollection("servicos", [
-    Query.equal("barbearia_id", barbeariaId),
-  ]);
+  try {
+    // Tenta com Query.equal (funciona se barbearia_id for string)
+    const resp = await listCollection("servicos", [
+      Query.equal("barbearia_id", barbeariaId),
+      Query.equal("status", "ativo"),
+    ]);
+    if (resp?.documents?.length > 0) return resp.documents;
+  } catch { /* continua para fallback */ }
 
-  return resp?.documents ?? [];
+  // Fallback: busca todos e filtra no cliente (cobre caso Relationship)
+  const todos = await listCollection("servicos", [Query.limit(100)]);
+  return (todos?.documents ?? []).filter(
+    (s) =>
+      (s.barbearia_id === barbeariaId || s.barbearia_id?.$id === barbeariaId) &&
+      s.status === "ativo"
+  );
+}
+
+export async function buscarHorariosDaBarbearia(barbeariaId) {
+  obrigatorio(barbeariaId, "barbeariaId");
+
+  try {
+    const resp = await listCollection("horarios", [
+      Query.equal("barbearia_id", barbeariaId),
+    ]);
+    if (resp?.documents?.length > 0) return resp.documents;
+  } catch { /* continua para fallback */ }
+
+  // Fallback com filtro no cliente
+  const todos = await listCollection("horarios", [Query.limit(100)]);
+  return (todos?.documents ?? []).filter(
+    (h) => h.barbearia_id === barbeariaId || h.barbearia_id?.$id === barbeariaId
+  );
+}
+
+export async function buscarHorariosOcupados(barbeariaId, data) {
+  obrigatorio(barbeariaId, "barbeariaId");
+  obrigatorio(data, "data");
+
+  try {
+    const resp = await listCollection("agendamentos", [
+      Query.equal("barbearia_id", barbeariaId),
+      Query.equal("data_agendamento", data),
+      Query.equal("status", "ativo"),
+    ]);
+    return (resp?.documents ?? []).map((a) => a.horario);
+  } catch {
+    return [];
+  }
 }
 
 export async function criarAgendamento({
@@ -37,7 +81,6 @@ export async function criarAgendamento({
   observacoes,
 }) {
   obrigatorio(barbearia_id, "barbearia_id");
-  // cliente_id e servico_id podem ser opcionais (reservas por nome)
   obrigatorio(data_agendamento, "data_agendamento");
   obrigatorio(horario, "horario");
 
@@ -53,6 +96,5 @@ export async function criarAgendamento({
   };
 
   const created = await createDocument("agendamentos", ID.unique(), payload);
-
   return created;
 }

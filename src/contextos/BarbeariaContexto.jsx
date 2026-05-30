@@ -1,5 +1,4 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
 import { databases, COLLECTIONS, DB_ID, Query, getAccount } from "../lib/appwrite";
 
 const BarbeariaContexto = createContext(null);
@@ -45,8 +44,6 @@ export function BarbeariaProvider({ children }) {
     }
   }, []);
 
-  const location = useLocation();
-
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
@@ -54,7 +51,7 @@ export function BarbeariaProvider({ children }) {
     };
     run();
     return () => { cancelled = true; };
-  }, [carregar, location.pathname]);
+  }, [carregar]);
 
   const valor = useMemo(
     () => ({

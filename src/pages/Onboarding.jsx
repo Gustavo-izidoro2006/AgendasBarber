@@ -121,8 +121,9 @@ function Campo({ label, children }) {
 
 export default function Onboarding() {
   const { carregando, usuario } = useSessaoBarbearia();
-  const { barbearia, recarregarBarbearia } = useBarbearia();
+  const { barbearia, recarregarBarbearia, setBarbearia } = useBarbearia();
   const navigate = useNavigate();
+  const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
     if (carregando) return;
@@ -167,6 +168,8 @@ export default function Onboarding() {
 
     // Substitua a sua função inteira por esta até o início do seu "return (" do HTML
   const finalizar = async () => {
+    if (salvando) return; // evita dupla execução (React StrictMode)
+    setSalvando(true);
     try {
       // 1) Usa o usuário já autenticado do contexto — sem chamar getAccount() de novo
       const user = usuario;
@@ -319,7 +322,7 @@ export default function Onboarding() {
 
         await criarServico({
           nome: srv.nome.trim(),
-          descricao: "",
+          descricao: " ",
           valor,
           duracao: String(duracao),
           status: "ativo",
@@ -328,26 +331,27 @@ export default function Onboarding() {
       }
 
       // 5) Atualizar `configuracoes_barbearia` setando `onboarding_completo: true`
-      if (configDoc?.$id) {
-        await databases.updateDocument(DB_ID, COLLECTIONS.configuracoes, configDoc.$id, {
+      // Usa o configDoc capturado antes, ou busca sem filtro de Relationship
+      let cfgDocFinal = configDoc ?? null;
+      if (!cfgDocFinal?.$id) {
+        try {
+          const cfg2 = await databases.listDocuments(DB_ID, COLLECTIONS.configuracoes, []);
+          cfgDocFinal = cfg2?.documents?.find(
+            (d) => d.barbearia_id === barbeariaId || d.barbearia_id?.$id === barbeariaId
+          ) ?? null;
+        } catch { /* ignora */ }
+      }
+      if (cfgDocFinal?.$id) {
+        await databases.updateDocument(DB_ID, COLLECTIONS.configuracoes, cfgDocFinal.$id, {
           onboarding_completo: true,
         });
-      } else {
-        const cfg2 = await databases.listDocuments(DB_ID, COLLECTIONS.configuracoes, [
-          Query.equal("barbearia_id", barbeariaId),
-          Query.limit(1),
-        ]);
-        const cfgDoc2 = cfg2?.documents?.[0] ?? null;
-        if (cfgDoc2?.$id) {
-          await databases.updateDocument(DB_ID, COLLECTIONS.configuracoes, cfgDoc2.$id, {
-            onboarding_completo: true,
-          });
-        }
       }
 
-      // 6) Redirecionar usando o slug gerado com sucesso
+      // 6) Recarregar barbearia no contexto e redirecionar
       if (slug) {
-        // Navega direto — BarbeariaContexto recarrega automaticamente ao montar o dashboard
+        // Força recarregamento do contexto antes de navegar
+        // para que o BarbeariaGuard encontre a barbearia e onboarding_completo=true
+        try { await recarregarBarbearia(); } catch { /* ignora */ }
         navigate(`/dashboard/${slug}`, { replace: true });
       } else {
         console.error("Não foi possível redirecionar: slug não encontrado.");
@@ -355,6 +359,8 @@ export default function Onboarding() {
 
     } catch (err) {
       console.error("Onboarding finalizar() erro detalhado:", err?.message, err?.response || err);
+    } finally {
+      setSalvando(false);
     }
   }; // Fim exato da função finalizar
 
