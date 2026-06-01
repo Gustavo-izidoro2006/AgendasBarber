@@ -219,7 +219,7 @@ export default function Onboarding() {
 
 
       // 2) Criar/atualizar `configuracoes_barbearia` (One-to-One)
-      // Busca doc existente — se a query falhar (ex: Relationship), trata no catch
+      // Busca doc existente — Relationship pode falhar com Query.equal, usa fallback
       let configDoc = null;
       try {
         const configDocs = await databases.listDocuments(DB_ID, COLLECTIONS.configuracoes, [
@@ -227,7 +227,15 @@ export default function Onboarding() {
           Query.limit(1),
         ]);
         configDoc = configDocs?.documents?.[0] ?? null;
-      } catch { /* ignora erro de query — vai tentar criar abaixo */ }
+      } catch {
+        // Fallback: busca tudo e filtra no cliente
+        try {
+          const all = await databases.listDocuments(DB_ID, COLLECTIONS.configuracoes, [Query.limit(25)]);
+          configDoc = (all?.documents ?? []).find(
+            (d) => d.barbearia_id === barbeariaId || d.barbearia_id?.$id === barbeariaId
+          ) ?? null;
+        } catch { /* ignora — vai criar abaixo */ }
+      }
 
       const configuracoesPayload = {
         barbearia_id: barbeariaId,
@@ -265,13 +273,13 @@ export default function Onboarding() {
       const fechamento = horarios?.fim || "";
 
       const mapDiaSemana = {
+        dom: 0,
         seg: 1,
         ter: 2,
         qua: 3,
         qui: 4,
         sex: 5,
         sab: 6,
-        dom: 7,
       };
 
       for (const ch of diasSelecionados) {
@@ -286,7 +294,7 @@ export default function Onboarding() {
           ativo: "true",
         };
 
-        // Tenta buscar doc existente — query pode falhar se barbearia_id for Relationship
+        // Tenta buscar doc existente — Relationship pode falhar com Query.equal
         let existingHorario = null;
         try {
           const existing = await databases.listDocuments(DB_ID, COLLECTIONS.horarios, [
@@ -295,7 +303,17 @@ export default function Onboarding() {
             Query.limit(1),
           ]);
           existingHorario = existing?.documents?.[0] ?? null;
-        } catch { /* query falhou, tenta criar direto */ }
+        } catch {
+          // Fallback: busca tudo e filtra no cliente
+          try {
+            const all = await databases.listDocuments(DB_ID, COLLECTIONS.horarios, [Query.limit(100)]);
+            existingHorario = (all?.documents ?? []).find(
+              (d) =>
+                (d.barbearia_id === barbeariaId || d.barbearia_id?.$id === barbeariaId) &&
+                d.dia_semana === dia_semana
+            ) ?? null;
+          } catch { /* query falhou, tenta criar direto */ }
+        }
 
         if (existingHorario?.$id) {
           await databases.updateDocument(DB_ID, COLLECTIONS.horarios, existingHorario.$id, horariosPayload);
@@ -366,7 +384,7 @@ export default function Onboarding() {
 
 
   return (
-    <main style={{ padding: 24, color: "white", minHeight: "100vh" }}>
+    <main style={{ padding: 24, color: "white", minHeight: "100vh", background: "#0a0a0a", animation: "fadeSlideUp 0.3s ease" }}>
       <Card>
         <div
           style={{
@@ -477,6 +495,8 @@ export default function Onboarding() {
                         background: "rgba(255,255,255,0.04)",
                         color: "white",
                         outline: "none",
+                              onFocus: (e) => (e.currentTarget.style.outline = "2px solid #FD366E"),
+                              onBlur: (e) => (e.currentTarget.style.outline = "none"),
                       }}
                     />
                   </Campo>
@@ -494,6 +514,8 @@ export default function Onboarding() {
                         background: "rgba(255,255,255,0.04)",
                         color: "white",
                         outline: "none",
+                              onFocus: (e) => (e.currentTarget.style.outline = "2px solid #FD366E"),
+                              onBlur: (e) => (e.currentTarget.style.outline = "none"),
                       }}
                     />
                   </Campo>
@@ -577,6 +599,8 @@ export default function Onboarding() {
                                 background: "rgba(255,255,255,0.04)",
                                 color: "white",
                                 outline: "none",
+                              onFocus: (e) => (e.currentTarget.style.outline = "2px solid #FD366E"),
+                              onBlur: (e) => (e.currentTarget.style.outline = "none"),
                               }}
                             />
                           </Campo>
@@ -600,6 +624,8 @@ export default function Onboarding() {
                               background: "rgba(255,255,255,0.04)",
                               color: "white",
                               outline: "none",
+                              onFocus: (e) => (e.currentTarget.style.outline = "2px solid #FD366E"),
+                              onBlur: (e) => (e.currentTarget.style.outline = "none"),
                             }}
                           />
                         </Campo>
@@ -722,6 +748,8 @@ export default function Onboarding() {
                           background: "rgba(255,255,255,0.04)",
                           color: "white",
                           outline: "none",
+                              onFocus: (e) => (e.currentTarget.style.outline = "2px solid #FD366E"),
+                              onBlur: (e) => (e.currentTarget.style.outline = "none"),
                         }}
                       />
                     </Campo>
@@ -746,8 +774,25 @@ export default function Onboarding() {
           </Botao>
 
           {etapaIndex === total - 1 ? (
-            <Botao onClick={finalizar} type="button">
-              Concluir
+            <Botao onClick={finalizar} type="button" disabled={salvando}>
+              {salvando ? (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  <span
+                    style={{
+                      width: 16,
+                      height: 16,
+                      border: "2px solid rgba(255,255,255,0.3)",
+                      borderTopColor: "white",
+                      borderRadius: "50%",
+                      animation: "spin 0.6s linear infinite",
+                      display: "inline-block",
+                    }}
+                  />
+                  Salvando...
+                </span>
+              ) : (
+                "Concluir"
+              )}
             </Botao>
           ) : (
             <Botao onClick={avancar} type="button">

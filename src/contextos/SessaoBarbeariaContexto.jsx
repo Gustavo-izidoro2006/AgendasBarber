@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { account, databases, COLLECTIONS, DB_ID, createEmailSession, deleteSession, Query, getAccount } from "../lib/appwrite";
+import { ID } from "appwrite";
 import { useNavigate } from "react-router-dom";
 
 const SessaoBarbeariaContexto = createContext(null);
@@ -56,8 +57,17 @@ export function SessaoBarbeariaProvider({ children }) {
         ]);
         const barb = resp?.documents?.[0] ?? null;
 
-        if (barb?.slug) {
-          navigate(`/dashboard/${barb.slug}`);
+        if (barb?.$id) {
+          // Verifica se onboarding já foi completado
+          const configs = await databases.listDocuments(DB_ID, COLLECTIONS.configuracoes, [Query.limit(25)]);
+          const configDoc = (configs?.documents ?? []).find(
+            (d) => d.barbearia_id === barb.$id || d.barbearia_id?.$id === barb.$id
+          );
+          if (configDoc?.onboarding_completo === true && barb.slug) {
+            navigate(`/dashboard/${barb.slug}`);
+          } else {
+            navigate("/onboarding");
+          }
         } else {
           navigate("/onboarding");
         }
@@ -88,7 +98,7 @@ export function SessaoBarbeariaProvider({ children }) {
       setErro(null);
       try {
         // 1) Cria o usuário no Appwrite Auth
-        const created = await account.create("unique()", email, senha, nomeBarbearia || undefined);
+        const created = await account.create(ID.unique(), email, senha, nomeBarbearia || undefined);
 
         // 2) Cria o documento da barbearia vinculado ao user_id
         if (DB_ID && nomeBarbearia) {
@@ -98,7 +108,7 @@ export function SessaoBarbeariaProvider({ children }) {
               "-" +
               created.$id.substring(0, 6);
 
-            await databases.createDocument(DB_ID, COLLECTIONS.barbearias, "unique()", {
+            await databases.createDocument(DB_ID, COLLECTIONS.barbearias, ID.unique(), {
               nome: nomeBarbearia,
               slug,
               email,

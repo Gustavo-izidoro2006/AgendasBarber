@@ -1,5 +1,6 @@
 import { Query, ID } from "appwrite";
 import { listCollection, createDocument, databases, DB_ID, COLLECTIONS } from "../lib/appwrite";
+export { buscarClientePorBarbeariaTelefone } from "../services/clientesService";
 
 function obrigatorio(valor, nome) {
   if (valor === undefined || valor === null || valor === "") {
@@ -22,21 +23,25 @@ export async function buscarServicosDaBarbearia(barbeariaId) {
   obrigatorio(barbeariaId, "barbeariaId");
 
   try {
-    // Tenta com Query.equal (funciona se barbearia_id for string)
     const resp = await listCollection("servicos", [
       Query.equal("barbearia_id", barbeariaId),
       Query.equal("status", "ativo"),
     ]);
     if (resp?.documents?.length > 0) return resp.documents;
-  } catch { /* continua para fallback */ }
+  } catch { /* Relationship pode falhar */ }
 
-  // Fallback: busca todos e filtra no cliente (cobre caso Relationship)
-  const todos = await listCollection("servicos", [Query.limit(100)]);
-  return (todos?.documents ?? []).filter(
-    (s) =>
-      (s.barbearia_id === barbeariaId || s.barbearia_id?.$id === barbeariaId) &&
-      s.status === "ativo"
-  );
+  // Fallback: busca tudo e filtra no cliente
+  try {
+    const todos = await listCollection("servicos", [Query.limit(100)]);
+    return (todos?.documents ?? []).filter(
+      (s) =>
+        (s.barbearia_id === barbeariaId || s.barbearia_id?.$id === barbeariaId) &&
+        s.status === "ativo"
+    );
+  } catch (err) {
+    console.error("Erro ao buscar serviços:", err);
+    return [];
+  }
 }
 
 export async function buscarHorariosDaBarbearia(barbeariaId) {
@@ -47,13 +52,30 @@ export async function buscarHorariosDaBarbearia(barbeariaId) {
       Query.equal("barbearia_id", barbeariaId),
     ]);
     if (resp?.documents?.length > 0) return resp.documents;
-  } catch { /* continua para fallback */ }
+  } catch { /* Relationship pode falhar */ }
 
-  // Fallback com filtro no cliente
-  const todos = await listCollection("horarios", [Query.limit(100)]);
-  return (todos?.documents ?? []).filter(
-    (h) => h.barbearia_id === barbeariaId || h.barbearia_id?.$id === barbeariaId
-  );
+  // Fallback
+  try {
+    const todos = await listCollection("horarios", [Query.limit(100)]);
+    return (todos?.documents ?? []).filter(
+      (h) => h.barbearia_id === barbeariaId || h.barbearia_id?.$id === barbeariaId
+    );
+  } catch {
+    return [];
+  }
+}
+
+export async function buscarConfiguracoesDaBarbearia(barbeariaId) {
+  obrigatorio(barbeariaId, "barbeariaId");
+  try {
+    const resp = await listCollection("configuracoes", [Query.limit(25)]);
+    const doc = (resp?.documents ?? []).find(
+      (d) => d.barbearia_id === barbeariaId || d.barbearia_id?.$id === barbeariaId
+    );
+    return doc ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function buscarHorariosOcupados(barbeariaId, data) {
@@ -64,9 +86,23 @@ export async function buscarHorariosOcupados(barbeariaId, data) {
     const resp = await listCollection("agendamentos", [
       Query.equal("barbearia_id", barbeariaId),
       Query.equal("data_agendamento", data),
-      Query.equal("status", "ativo"),
+      Query.notEqual("status", "cancelado"),
     ]);
-    return (resp?.documents ?? []).map((a) => a.horario);
+    const docs = resp?.documents ?? [];
+    if (docs.length > 0) return docs.map((a) => a.horario);
+  } catch { /* Relationship pode falhar */ }
+
+  // Fallback
+  try {
+    const all = await listCollection("agendamentos", [Query.limit(200)]);
+    return (all?.documents ?? [])
+      .filter(
+        (a) =>
+          (a.barbearia_id === barbeariaId || a.barbearia_id?.$id === barbeariaId) &&
+          a.data_agendamento === data &&
+          a.status !== "cancelado"
+      )
+      .map((a) => a.horario);
   } catch {
     return [];
   }
@@ -91,7 +127,7 @@ export async function criarAgendamento({
     data_agendamento,
     horario,
     observacoes: observacoes ?? null,
-    status: "ativo",
+    status: "pendente",
     criado_em: new Date().toISOString(),
   };
 

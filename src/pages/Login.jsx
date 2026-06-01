@@ -2,41 +2,20 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useSessaoBarbearia } from "../contextos/SessaoBarbeariaContexto";
 
-function Card({ children }) {
-  return (
-    <div
-      style={{
-        width: "100%",
-        maxWidth: 460,
-        margin: "0 auto",
-        textAlign: "left",
-        padding: 22,
-        borderRadius: 18,
-        background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))",
-        border: "1px solid rgba(255,255,255,0.10)",
-        boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
 export default function Login() {
   const { login, carregando: carregandoSessao } = useSessaoBarbearia();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
-
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState(null);
 
   async function enviar(e) {
     e.preventDefault();
+    if (carregando || carregandoSessao) return;
     setCarregando(true);
     setErro(null);
-
     try {
       await login(email, senha);
     } catch (err) {
@@ -46,146 +25,152 @@ export default function Login() {
     }
   }
 
-  function disabled() {
-    return carregando || carregandoSessao;
-  }
+  const inputStyle = {
+    width: "100%",
+    padding: "12px 14px",
+    borderRadius: 10,
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(255,255,255,0.04)",
+    color: "white",
+    outline: "none",
+    fontSize: 15,
+    transition: "all 0.15s ease",
+    boxSizing: "border-box",
+  };
 
   return (
     <main
       style={{
         minHeight: "100vh",
-        padding: 24,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        padding: 24,
+        background: "radial-gradient(ellipse at 50% 0%, rgba(253,54,110,0.06) 0%, #0a0a0a 60%)",
       }}
     >
-      <Card>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <div>
-            <h1 style={{ margin: 0, color: "white", fontSize: 28 }}>Entrar</h1>
-            <p style={{ margin: "8px 0 0", color: "rgba(255,255,255,0.82)", fontSize: 14 }}>
-              Acesse sua barbearia para configurar serviços e gerenciar agendamentos.
-            </p>
-          </div>
-
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 420,
+          padding: 32,
+          borderRadius: 16,
+          background: "rgba(255,255,255,0.04)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          boxShadow: "0 4px 24px rgba(0,0,0,0.3)",
+          animation: "fadeSlideUp 0.25s ease forwards",
+        }}
+      >
+        {/* Header */}
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div
             style={{
-              width: 44,
-              height: 44,
-              borderRadius: 14,
+              width: 56,
+              height: 56,
+              borderRadius: 16,
               background: "rgba(253,54,110,0.15)",
               border: "1px solid rgba(253,54,110,0.35)",
-              display: "flex",
+              display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "#FD366E",
-              fontWeight: 900,
+              fontSize: 24,
+              marginBottom: 12,
             }}
             aria-hidden="true"
           >
             ✂️
           </div>
+          <h1 style={{ margin: 0, color: "white", fontSize: 26, fontWeight: 700 }}>
+            AgendasBarber
+          </h1>
+          <p style={{ margin: "8px 0 0", color: "rgba(255,255,255,0.55)", fontSize: 14 }}>
+            Acesse sua barbearia
+          </p>
         </div>
 
-        <form onSubmit={enviar} style={{ marginTop: 18 }}>
-          <label style={{ display: "block", marginBottom: 12 }}>
-            <div style={{ color: "rgba(255,255,255,0.86)", fontSize: 14, marginBottom: 6 }}>Email</div>
+        <form onSubmit={enviar}>
+          <label style={{ display: "block", marginBottom: 14 }}>
+            <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 13, marginBottom: 6, fontWeight: 600 }}>
+              E-mail
+            </div>
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               type="email"
               required
-              style={{
-                width: "100%",
-                padding: "12px 12px",
-                borderRadius: 14,
-                border: "1px solid rgba(255,255,255,0.10)",
-                background: "rgba(255,255,255,0.04)",
-                color: "white",
-                outline: "none",
-              }}
+              style={inputStyle}
+              onFocus={(e) => (e.target.style.outline = "2px solid #FD366E")}
+              onBlur={(e) => (e.target.style.outline = "none")}
+              placeholder="seu@email.com"
             />
           </label>
 
-          <label style={{ display: "block", marginBottom: 12 }}>
-            <div style={{ color: "rgba(255,255,255,0.86)", fontSize: 14, marginBottom: 6 }}>Senha</div>
+          <label style={{ display: "block", marginBottom: 16 }}>
+            <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 13, marginBottom: 6, fontWeight: 600 }}>
+              Senha
+            </div>
             <input
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
               type="password"
               required
-              style={{
-                width: "100%",
-                padding: "12px 12px",
-                borderRadius: 14,
-                border: "1px solid rgba(255,255,255,0.10)",
-                background: "rgba(255,255,255,0.04)",
-                color: "white",
-                outline: "none",
-              }}
+              style={inputStyle}
+              onFocus={(e) => (e.target.style.outline = "2px solid #FD366E")}
+              onBlur={(e) => (e.target.style.outline = "none")}
+              placeholder="••••••••"
             />
           </label>
 
-          {erro ? (
+          {erro && (
             <div
               style={{
-                marginTop: 10,
-                padding: 12,
-                borderRadius: 14,
-                border: "1px solid rgba(255,128,128,0.35)",
-                background: "rgba(255,128,128,0.10)",
-                color: "#ff8080",
-                fontSize: 14,
+                marginBottom: 14,
+                padding: "10px 14px",
+                borderRadius: 10,
+                border: "1px solid rgba(253,54,110,0.3)",
+                background: "rgba(253,54,110,0.1)",
+                color: "#FD366E",
+                fontSize: 13,
+                fontWeight: 600,
               }}
               role="alert"
             >
               {erro}
             </div>
-          ) : null}
+          )}
 
           <button
             type="submit"
-            disabled={disabled()}
+            disabled={carregando || carregandoSessao}
             style={{
               width: "100%",
-              marginTop: 14,
-              padding: "12px 14px",
-              borderRadius: 14,
-              border: "1px solid rgba(255,255,255,0.10)",
-              background: disabled() ? "rgba(253,54,110,0.35)" : "#FD366E",
+              padding: "13px 16px",
+              borderRadius: 10,
+              border: "none",
+              background: carregando ? "rgba(253,54,110,0.5)" : "#FD366E",
               color: "white",
-              cursor: disabled() ? "not-allowed" : "pointer",
-              fontWeight: 900,
+              fontSize: 15,
+              fontWeight: 700,
+              cursor: carregando ? "not-allowed" : "pointer",
+              transition: "all 0.15s ease",
             }}
           >
-            {disabled() ? "Entrando..." : "Entrar"}
+            {carregando ? "Entrando..." : "Entrar"}
           </button>
 
-          <div style={{ marginTop: 14, display: "flex", justifyContent: "space-between", gap: 12 }}>
-            <Link
-              to="/cadastro"
-              style={{ color: "rgba(255,255,255,0.85)", fontSize: 14, textDecoration: "none" }}
-            >
-              Criar conta
-            </Link>
-
-            <button
-              type="button"
-              onClick={() => navigate("/")}
-              style={{
-                background: "transparent",
-                border: "none",
-                color: "rgba(255,255,255,0.78)",
-                cursor: "pointer",
-                fontSize: 14,
-              }}
-            >
-              Voltar
-            </button>
+          <div style={{ marginTop: 16, display: "flex", justifyContent: "center" }}>
+            <span style={{ color: "rgba(255,255,255,0.55)", fontSize: 14 }}>
+              Não tem conta?{" "}
+              <Link
+                to="/cadastro"
+                style={{ color: "#FD366E", textDecoration: "none", fontWeight: 600 }}
+              >
+                Criar conta
+              </Link>
+            </span>
           </div>
         </form>
-      </Card>
+      </div>
     </main>
   );
 }

@@ -29,8 +29,8 @@ export default function App() {
             </Route>
 
             {/* Redirects */}
-            <Route path="/" element={<Navigate to="/login" replace />} />
-            <Route path="/home" element={<Navigate to="/login" replace />} />
+            <Route path="/home" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BarbeariaProvider>
       </SessaoBarbeariaProvider>

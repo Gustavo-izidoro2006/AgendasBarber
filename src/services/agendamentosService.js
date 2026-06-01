@@ -23,9 +23,23 @@ function obrigatorio(valor, nome) {
 export async function listarAgendamentos(barbeariaId, queries = []) {
   obrigatorio(barbeariaId, "barbeariaId");
 
-  const queriesComFiltro = [Query.equal("barbearia_id", barbeariaId), ...queries];
-  const resp = await listCollection("agendamentos", queriesComFiltro);
-  return resp?.documents ?? [];
+  try {
+    const queriesComFiltro = [Query.equal("barbearia_id", barbeariaId), ...queries];
+    const resp = await listCollection("agendamentos", queriesComFiltro);
+    const docs = resp?.documents ?? [];
+    if (docs.length > 0) return docs;
+  } catch { /* Relationship pode falhar com Query.equal */ }
+
+  // Fallback: busca tudo e filtra no cliente
+  try {
+    const all = await listCollection("agendamentos", [Query.limit(100), ...queries]);
+    return (all?.documents ?? []).filter(
+      (d) => d.barbearia_id === barbeariaId || d.barbearia_id?.$id === barbeariaId
+    );
+  } catch (err) {
+    console.error("Erro ao listar agendamentos:", err);
+    return [];
+  }
 }
 
 /**

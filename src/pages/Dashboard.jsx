@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSessaoBarbearia } from "../contextos/SessaoBarbeariaContexto";
 import { account, databases, COLLECTIONS, DB_ID, Query } from "../lib/appwrite";
+import { ID } from "appwrite";
 
 function formatarDataISOParaPT(dataISO) {
   // dataISO: YYYY-MM-DD
@@ -474,22 +475,29 @@ export default function Dashboard() {
         const COL_CLIENTES = COLLECTIONS.clientes;
         const COL_SERVICOS = COLLECTIONS.servicos;
 
-        const [ag, cl, sv] = await Promise.all([
-          DB_ID && COL_AGEND
-            ? databases.listDocuments(DB_ID, COL_AGEND, [Query.equal("barbearia_id", barbeariaId)])
-            : Promise.resolve(null),
-          DB_ID && COL_CLIENTES
-            ? databases.listDocuments(DB_ID, COL_CLIENTES, [Query.equal("barbearia_id", barbeariaId)])
-            : Promise.resolve(null),
-          DB_ID && COL_SERVICOS
-            ? databases.listDocuments(DB_ID, COL_SERVICOS, [Query.equal("barbearia_id", barbeariaId)])
-            : Promise.resolve(null),
+        // Helper para buscar com fallback de Relationship
+        const buscarComFallback = async (col) => {
+          try {
+            const resp = await databases.listDocuments(DB_ID, col, [Query.equal("barbearia_id", barbeariaId)]);
+            if (resp?.documents?.length > 0) return resp.documents;
+          } catch { /* Relationship pode falhar com Query.equal */ }
+          // Fallback: busca tudo e filtra no cliente
+          const all = await databases.listDocuments(DB_ID, col, [Query.limit(200)]);
+          return (all?.documents ?? []).filter(
+            (d) => d.barbearia_id === barbeariaId || d.barbearia_id?.$id === barbeariaId
+          );
+        };
+
+        const [agDocs, clDocs, svDocs] = await Promise.all([
+          DB_ID && COL_AGEND ? buscarComFallback(COL_AGEND) : [],
+          DB_ID && COL_CLIENTES ? buscarComFallback(COL_CLIENTES) : [],
+          DB_ID && COL_SERVICOS ? buscarComFallback(COL_SERVICOS) : [],
         ]);
 
         if (!mounted) return;
-        setAgendamentos(ag?.documents ?? []);
-        setClientes(cl?.documents ?? []);
-        setServicosState(sv?.documents ?? []);
+        setAgendamentos(agDocs);
+        setClientes(clDocs);
+        setServicosState(svDocs);
         setCarregandoDados(false);
       } catch (err) {
         console.error("Dashboard carregar() erro:", err);
@@ -527,16 +535,25 @@ export default function Dashboard() {
           await databases.createDocument(
             DB_ID,
             COLLECTIONS.servicos,
-            "unique()",
+            ID.unique(),
             { ...dados, barbearia_id: barbearia.$id }
           );
         }
 
         // Recarrega serviços
-        const sv = await databases.listDocuments(DB_ID, COLLECTIONS.servicos, [
-          Query.equal("barbearia_id", barbearia.$id),
-        ]);
-        setServicosState(sv?.documents ?? []);
+        try {
+          const sv = await databases.listDocuments(DB_ID, COLLECTIONS.servicos, [
+            Query.equal("barbearia_id", barbearia.$id),
+          ]);
+          setServicosState(sv?.documents ?? []);
+        } catch {
+          const all = await databases.listDocuments(DB_ID, COLLECTIONS.servicos, [Query.limit(200)]);
+          setServicosState(
+            (all?.documents ?? []).filter(
+              (d) => d.barbearia_id === barbearia.$id || d.barbearia_id?.$id === barbearia.$id
+            )
+          );
+        }
         setModalServico({ aberto: false, servico: null });
       } catch (err) {
         console.error("Erro ao salvar serviço:", err);
@@ -554,10 +571,19 @@ export default function Dashboard() {
         await databases.deleteDocument(DB_ID, COLLECTIONS.servicos, servicoId);
 
         // Recarrega serviços
-        const sv = await databases.listDocuments(DB_ID, COLLECTIONS.servicos, [
-          Query.equal("barbearia_id", barbearia.$id),
-        ]);
-        setServicosState(sv?.documents ?? []);
+        try {
+          const sv = await databases.listDocuments(DB_ID, COLLECTIONS.servicos, [
+            Query.equal("barbearia_id", barbearia.$id),
+          ]);
+          setServicosState(sv?.documents ?? []);
+        } catch {
+          const all = await databases.listDocuments(DB_ID, COLLECTIONS.servicos, [Query.limit(200)]);
+          setServicosState(
+            (all?.documents ?? []).filter(
+              (d) => d.barbearia_id === barbearia.$id || d.barbearia_id?.$id === barbearia.$id
+            )
+          );
+        }
       } catch (err) {
         console.error("Erro ao deletar serviço:", err);
         alert("Erro ao deletar serviço: " + (err?.message || err));

@@ -9,32 +9,35 @@ function obrigatorio(valor, nome) {
 
 /**
  * Lista todos os clientes de uma barbearia
- * @param {string} barbeariaId - O ID da barbearia
- * @param {Array} queries - Queries adicionais do Appwrite (opcional)
- * @returns {Promise<Array<Object>>} Lista de clientes
  */
 export async function listarClientes(barbeariaId, queries = []) {
   obrigatorio(barbeariaId, "barbeariaId");
 
-  const queriesComFiltro = [
-    Query.equal("barbearia_id", barbeariaId),
-    ...queries,
-  ];
+  try {
+    const resp = await listCollection("clientes", [Query.equal("barbearia_id", barbeariaId), ...queries]);
+    const docs = resp?.documents ?? [];
+    if (docs.length > 0) return docs;
+  } catch { /* Relationship pode falhar com Query.equal */ }
 
-  const resp = await listCollection("clientes", queriesComFiltro);
-  return resp?.documents ?? [];
+  // Fallback: busca tudo e filtra no cliente
+  try {
+    const all = await listCollection("clientes", [Query.limit(100), ...queries]);
+    return (all?.documents ?? []).filter(
+      (d) => d.barbearia_id === barbeariaId || d.barbearia_id?.$id === barbeariaId
+    );
+  } catch (err) {
+    console.error("Erro ao listar clientes:", err);
+    return [];
+  }
 }
 
 /**
  * Busca um cliente pelo ID
- * @param {string} clienteId - O ID do cliente
- * @returns {Promise<Object|null>} O cliente encontrado ou null
  */
 export async function buscarClientePorId(clienteId) {
   obrigatorio(clienteId, "clienteId");
   try {
-    const resp = await getDocument("clientes", clienteId);
-    return resp ?? null;
+    return await getDocument("clientes", clienteId);
   } catch (err) {
     console.error("Erro ao buscar cliente:", err);
     throw new Error("Falha ao buscar cliente. Tente novamente.");
@@ -42,30 +45,36 @@ export async function buscarClientePorId(clienteId) {
 }
 
 /**
- * Cria um novo cliente para uma barbearia
- * @param {Object} params - Os dados do cliente
- * @returns {Promise<Object>} O cliente criado
- */
-/**
- * Busca um cliente existente por barbearia + telefone (PASSO 1 do onboarding público)
- * Se o schema não tiver telefone indexado/único, ainda assim usamos o filtro.
+ * Busca um cliente existente por barbearia + telefone
  */
 export async function buscarClientePorBarbeariaTelefone({ barbeariaId, telefone }) {
   obrigatorio(barbeariaId, "barbeariaId");
   obrigatorio(telefone, "telefone");
 
-  const resp = await listCollection("clientes", [
-    Query.equal("barbearia_id", barbeariaId),
-    Query.equal("telefone", String(telefone).trim()),
-  ]);
+  try {
+    const resp = await listCollection("clientes", [
+      Query.equal("barbearia_id", barbeariaId),
+      Query.equal("telefone", String(telefone).trim()),
+    ]);
+    const found = resp?.documents?.[0];
+    if (found) return found;
+  } catch { /* Relationship pode falhar */ }
 
-  return resp?.documents?.[0] ?? null;
+  // Fallback: busca todos e filtra no cliente
+  try {
+    const all = await listCollection("clientes", [Query.limit(100)]);
+    return (all?.documents ?? []).find(
+      (d) =>
+        (d.barbearia_id === barbeariaId || d.barbearia_id?.$id === barbeariaId) &&
+        String(d.telefone ?? "").trim() === String(telefone).trim()
+    ) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**
  * Cria um novo cliente para uma barbearia
- * @param {Object} params - Os dados do cliente
- * @returns {Promise<Object>} O cliente criado
  */
 export async function criarCliente({ barbearia_id, nome, telefone, email, observacoes }) {
   obrigatorio(barbearia_id, "barbearia_id");
@@ -89,12 +98,8 @@ export async function criarCliente({ barbearia_id, nome, telefone, email, observ
   }
 }
 
-
 /**
  * Atualiza um cliente existente
- * @param {string} clienteId - O ID do cliente
- * @param {Object} updates - Os dados atualizados do cliente
- * @returns {Promise<Object>} O cliente atualizado
  */
 export async function atualizarCliente(clienteId, { nome, telefone, email, observacoes }) {
   obrigatorio(clienteId, "clienteId");
@@ -115,8 +120,6 @@ export async function atualizarCliente(clienteId, { nome, telefone, email, obser
 
 /**
  * Remove um cliente
- * @param {string} clienteId - O ID do cliente
- * @returns {Promise<void>}
  */
 export async function removerCliente(clienteId) {
   obrigatorio(clienteId, "clienteId");

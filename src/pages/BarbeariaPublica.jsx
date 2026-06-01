@@ -5,6 +5,7 @@ import {
   buscarServicosDaBarbearia,
   buscarHorariosDaBarbearia,
   buscarHorariosOcupados,
+  buscarConfiguracoesDaBarbearia,
   criarAgendamento,
 } from "../services/barbeariaPublicaService";
 import {
@@ -130,6 +131,8 @@ function Input({ label, value, onChange, type = "text", placeholder }) {
           outline: "none",
           boxSizing: "border-box",
         }}
+        onFocus={(e) => (e.currentTarget.style.outline = "2px solid #FD366E")}
+        onBlur={(e) => (e.currentTarget.style.outline = "none")}
       />
     </label>
   );
@@ -177,14 +180,16 @@ export default function BarbeariaPublica() {
         if (!found) { setErro("Barbearia não encontrada."); return; }
         setBarbearia(found);
 
-        const [svcs, hors] = await Promise.all([
+        const [svcs, hors, cfg] = await Promise.all([
           buscarServicosDaBarbearia(found.$id),
           buscarHorariosDaBarbearia(found.$id),
+          buscarConfiguracoesDaBarbearia(found.$id),
         ]);
         if (!mounted) return;
 
         setServicos(svcs ?? []);
         setHorariosDaBarbearia(hors ?? []);
+        if (cfg?.intervalo_agendamento) setIntervaloMin(Number(cfg.intervalo_agendamento));
 
         if (svcs?.length) setServicoId(svcs[0].$id);
       } catch (e) {
@@ -221,6 +226,36 @@ export default function BarbeariaPublica() {
 
   // limpa horário selecionado se data muda
   useEffect(() => { setHorario(""); }, [data]);
+
+  // ── auto-fill nome ao digitar telefone (cliente retornante) ──
+  useEffect(() => {
+    if (!barbearia?.$id || clienteTelefone.trim().length < 8) return;
+    const timer = setTimeout(async () => {
+      try {
+        const existing = await buscarClientePorBarbeariaTelefone({
+          barbeariaId: barbearia.$id,
+          telefone: clienteTelefone.trim(),
+        });
+        if (existing?.nome) setClienteNome(existing.nome);
+      } catch { /* silencioso */ }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [barbearia, clienteTelefone]);
+
+  // Auto-fill nome do cliente por telefone (retornante)
+  useEffect(() => {
+    if (!barbearia?.$id || clienteTelefone.trim().length < 10) return;
+    const timer = setTimeout(async () => {
+      try {
+        const found = await buscarClientePorBarbeariaTelefone({
+          barbeariaId: barbearia.$id,
+          telefone: clienteTelefone.trim(),
+        });
+        if (found?.nome) setClienteNome(found.nome);
+      } catch { /* silencioso */ }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [clienteTelefone, barbearia]);
 
   const servicoSelecionado = useMemo(
     () => servicos.find((s) => s.$id === servicoId) ?? null,
@@ -275,7 +310,7 @@ export default function BarbeariaPublica() {
 
   // ── render estados ──
   if (carregando) return (
-    <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0f0f0f", color: "white" }}>
+    <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0a0a0a", color: "white" }}>
       <div style={{ textAlign: "center" }}>
         <div style={{ fontSize: 32, marginBottom: 12 }}>✂️</div>
         <div>Carregando...</div>
@@ -284,7 +319,7 @@ export default function BarbeariaPublica() {
   );
 
   if (erro) return (
-    <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0f0f0f", color: "white" }}>
+    <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0a0a0a", color: "white" }}>
       <div style={{ textAlign: "center", maxWidth: 400 }}>
         <div style={{ fontSize: 32, marginBottom: 12 }}>⚠️</div>
         <div style={{ color: "#ff8080" }}>{erro}</div>
@@ -298,7 +333,7 @@ export default function BarbeariaPublica() {
     : null;
 
   return (
-    <main style={{ minHeight: "100vh", background: "#111", color: "white", padding: "24px 16px" }}>
+    <main style={{ minHeight: "100vh", background: "#0a0a0a", color: "white", padding: "24px 16px", animation: "fadeSlideUp 0.3s ease" }}>
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
 
         {/* Header */}

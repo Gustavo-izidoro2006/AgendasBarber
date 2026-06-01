@@ -1,4 +1,4 @@
-import { Client, Account, Databases, Query } from "appwrite";
+import { Client, Account, Databases, Query, ID } from "appwrite";
 
 const client = new Client()
   .setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT)
@@ -50,7 +50,7 @@ async function createDocument(key, documentId, payload) {
 
 async function createCollectionDocument(key, payload) {
   ensureDatabaseConfig();
-  return databases.createDocument(DB_ID, getCollectionId(key), "unique()", payload);
+  return databases.createDocument(DB_ID, getCollectionId(key), ID.unique(), payload);
 }
 
 async function updateDocument(key, documentId, payload) {

@@ -69,13 +69,27 @@ function validarDadosServico(dados, isInclusiveBarbeariaId = true) {
 export async function listarServicos(barbeariaId, queries = []) {
   obrigatorio(barbeariaId, "barbeariaId");
 
-  const queriesComFiltro = [
-    Query.equal("barbearia_id", barbeariaId),
-    ...queries,
-  ];
+  try {
+    // Tenta query direta primeiro
+    const queriesComFiltro = [
+      Query.equal("barbearia_id", barbeariaId),
+      ...queries,
+    ];
+    const resposta = await listCollection("servicos", queriesComFiltro);
+    const docs = resposta?.documents ?? [];
+    if (docs.length > 0) return docs;
+  } catch { /* ignora — Relationship pode falhar com Query.equal */ }
 
-  const resposta = await listCollection("servicos", queriesComFiltro);
-  return resposta?.documents ?? [];
+  // Fallback: busca tudo e filtra no cliente (Relationship)
+  try {
+    const all = await listCollection("servicos", [Query.limit(100), ...queries]);
+    return (all?.documents ?? []).filter(
+      (d) => d.barbearia_id === barbeariaId || d.barbearia_id?.$id === barbeariaId
+    );
+  } catch (err) {
+    console.error("Erro ao listar serviços:", err);
+    return [];
+  }
 }
 
 /**
