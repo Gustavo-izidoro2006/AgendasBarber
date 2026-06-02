@@ -6,7 +6,6 @@ import { databases, COLLECTIONS, DB_ID } from "../../lib/appwrite";
 export default function BarbeariaGuard() {
   const { barbearia, carregando: carregandoBarbearia } = useBarbearia();
   const { slug } = useParams();
-
   const [setupLoading, setSetupLoading] = useState(true);
   const [setupComplete, setSetupComplete] = useState(false);
 
@@ -22,34 +21,18 @@ export default function BarbeariaGuard() {
 
     async function checkSetup() {
       try {
-        // QUERY COM RELATIONSHIP FIELDS: Appwrite documenta que Query.equal com relationship fields
-        // pode falhar silenciosamente. Estratégia: busca sem filtro e filtra no client.
-        // REF: https://appwrite.io/docs/products/databases/relationships#limitations
-        const configRes = await databases.listDocuments(
-          DB_ID,
-          COLLECTIONS.configuracoes,
-          [] // Sem filtro - carrega TODOS os configuracoes docs
-        );
-
+        // Busca todas as configurações e filtra no cliente
+        // (Query.equal com Relationship field não é suportado)
+        const configRes = await databases.listDocuments(DB_ID, COLLECTIONS.configuracoes, []);
         if (cancelled) return;
 
-        // Filtra no client-side pela barbearia_id (evita limitation do Query com relationship)
-        const configDoc = configRes?.documents?.find(
-          (d) =>
-            d.barbearia_id === barbearia.$id ||
-            d.barbearia_id?.$id === barbearia.$id
+        const configDoc = (configRes?.documents ?? []).find(d =>
+          d.barbearia_id === barbearia.$id || d.barbearia_id?.$id === barbearia.$id
         ) ?? null;
 
-        // Verifica se onboarding foi completado
-        // ✅ Se true: permite acesso ao dashboard
-        // ❌ Se false/null: redireciona de volta para onboarding
-        const onboardingCompleto = configDoc?.onboarding_completo === true;
-
-        setSetupComplete(onboardingCompleto);
+        setSetupComplete(configDoc?.onboarding_completo === true);
       } catch (e) {
-        if (e?.code !== 401 && e?.code !== 400) {
-          console.error("BarbeariaGuard checkSetup erro:", e);
-        }
+        if (e?.code !== 401) console.error("BarbeariaGuard erro:", e);
         if (!cancelled) setSetupComplete(false);
       } finally {
         if (!cancelled) setSetupLoading(false);
@@ -62,15 +45,17 @@ export default function BarbeariaGuard() {
 
   if (carregandoBarbearia || setupLoading) {
     return (
-      <main style={{ padding: 24, color: "white" }}>
-        <h1>Carregando...</h1>
+      <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0a0a0a", color: "white" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ width: 32, height: 32, border: "3px solid rgba(255,255,255,0.1)", borderTopColor: "#FD366E", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 12px" }} />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          <div style={{ color: "rgba(255,255,255,0.60)", fontSize: 14 }}>Verificando...</div>
+        </div>
       </main>
     );
   }
 
-  if (!barbearia) {
-    return <Navigate to="/onboarding" replace />;
-  }
+  if (!barbearia) return <Navigate to="/onboarding" replace />;
 
   if (!setupComplete) {
     const destSlug = barbearia.slug ?? slug;
