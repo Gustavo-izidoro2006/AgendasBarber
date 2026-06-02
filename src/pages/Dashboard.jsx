@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSessaoBarbearia } from "../contextos/SessaoBarbeariaContexto";
+import { useBarbearia } from "../contextos/BarbeariaContexto";
 import { account, databases, COLLECTIONS, DB_ID, Query } from "../lib/appwrite";
 import { ID } from "appwrite";
 
@@ -409,8 +410,10 @@ function Calendario({
 export default function Dashboard() {
   const { slug } = useParams();
   const navigate = useNavigate();
-  const { carregando, usuario, logout, barbearia, barbeariaId } = useSessaoBarbearia();
+  const { carregando, usuario, logout } = useSessaoBarbearia();
+  const { setBarbearia: setBarebariaBProv } = useBarbearia().setBarbearia ? useBarbearia() : { setBarbearia: () => {} };
   const [aba, setAba] = useState("estatisticas");
+  const [barbearia, setBarbearia] = useState(null);
   const [carregandoDados, setCarregandoDados] = useState(true);
   const [erroCarregamento, setErroCarregamento] = useState(null);
 
