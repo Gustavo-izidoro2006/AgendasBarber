@@ -3,7 +3,7 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSessaoBarbearia } from "../contextos/SessaoBarbeariaContexto";
 import { useBarbearia } from "../contextos/BarbeariaContexto";
-import { databases, COLLECTIONS, DB_ID, Query } from "../lib/appwrite";
+import { databases, COLLECTIONS, DB_ID, Query, upsertDocument } from "../lib/appwrite";
 import { ID } from "appwrite";
 import {
   criarServico,
@@ -239,29 +239,29 @@ export default function Onboarding() {
 
       const configuracoesPayload = {
         barbearia_id: barbeariaId,
+        // FIELD TYPES: Appwrite é STRICT com tipos! 
+        // Schema diz: onboarding_completo = BOOLEAN → enviar true/false (NOT "true"/"false")
+        // Erro comum: 400 "Invalid document structure: Attribute 'onboarding_completo' has invalid type"
+        // REF: https://appwrite.io/docs/products/databases
         onboarding_completo: false,
         intervalo_agendamento: 15,
         antecedencia_minima: 2,
       };
 
-      if (configDoc?.$id) {
-        await databases.updateDocument(DB_ID, COLLECTIONS.configuracoes, configDoc.$id, configuracoesPayload);
+      console.debug("[Onboarding] configuracoesPayload ->", configuracoesPayload);
+
+      // Usa upsert para garantir idempotência (evita 409 Conflict se já existir)
+      // ESTRATÉGIA APPWRITE: Create com ID.unique() → 409? → Busca & Update
+      // REF: https://appwrite.io/docs/references/cloud/client-web/databases#upsert-a-document
+      const upsertResult = await upsertDocument("configuracoes", [Query.equal("barbearia_id", barbeariaId)], configuracoesPayload);
+      if (upsertResult?.$id) {
+        configDoc = upsertResult;
       } else {
+        // Se upsert não encontrou/atualizou, busca manualmente (pode ser que já exista de tentativa anterior)
         try {
-          const novoConfig = await databases.createDocument(DB_ID, COLLECTIONS.configuracoes, ID.unique(), configuracoesPayload);
-          configDoc = novoConfig;
-        } catch (err409) {
-          // Se 409 — já existe mas a query não achou. Busca por listDocuments sem filtro de barbearia_id
-          if (err409?.code === 409) {
-            const all = await databases.listDocuments(DB_ID, COLLECTIONS.configuracoes, [Query.limit(25)]);
-            configDoc = all?.documents?.find(d => d.barbearia_id === barbeariaId || d.barbearia_id?.$id === barbeariaId) ?? null;
-            if (configDoc?.$id) {
-              await databases.updateDocument(DB_ID, COLLECTIONS.configuracoes, configDoc.$id, configuracoesPayload);
-            }
-          } else {
-            throw err409;
-          }
-        }
+          const all = await databases.listDocuments(DB_ID, COLLECTIONS.configuracoes, [Query.limit(25)]);
+          configDoc = all?.documents?.find(d => d.barbearia_id === barbeariaId || d.barbearia_id?.$id === barbeariaId) ?? configDoc;
+        } catch { /* ignora */ }
       }
 
       // 3) Criar documentos em `horarios_atendimento`
@@ -284,17 +284,25 @@ export default function Onboarding() {
 
       for (const ch of diasSelecionados) {
         const dia_semana = mapDiaSemana[ch];
-        if (!dia_semana) continue;
+        // dia_semana pode ser 0 (domingo) — verificar undefined ou null em vez de falsy
+        if (dia_semana === undefined || dia_semana === null) continue;
 
         const horariosPayload = {
           barbearia_id: barbeariaId,
           dia_semana,
           abertura,
           fechamento,
+          // FIELD TYPES: Schema diz ativo = STRING → enviar "true"/"false" (NOT boolean true/false)
+          // Erro comum: 400 "Invalid document structure: Attribute 'ativo' has invalid type"
+          // REF: https://appwrite.io/docs/products/databases
           ativo: "true",
         };
 
-        // Tenta buscar doc existente — Relationship pode falhar com Query.equal
+        console.debug("[Onboarding] horariosPayload ->", horariosPayload);
+
+        // QUERY COM RELATIONSHIP: Query.equal("barbearia_id", ...) pode falhar com Relationship fields
+        // Sempre há fallback de busca sem filtro + client-side filter (vejo abaixo)
+        // REF: https://appwrite.io/docs/products/databases/relationships#limitations
         let existingHorario = null;
         try {
           const existing = await databases.listDocuments(DB_ID, COLLECTIONS.horarios, [
@@ -304,7 +312,7 @@ export default function Onboarding() {
           ]);
           existingHorario = existing?.documents?.[0] ?? null;
         } catch {
-          // Fallback: busca tudo e filtra no cliente
+          // Fallback: busca tudo e filtra no cliente (quando Query falha silenciosamente)
           try {
             const all = await databases.listDocuments(DB_ID, COLLECTIONS.horarios, [Query.limit(100)]);
             existingHorario = (all?.documents ?? []).find(
@@ -315,15 +323,14 @@ export default function Onboarding() {
           } catch { /* query falhou, tenta criar direto */ }
         }
 
-        if (existingHorario?.$id) {
-          await databases.updateDocument(DB_ID, COLLECTIONS.horarios, existingHorario.$id, horariosPayload);
-        } else {
-          try {
-            await databases.createDocument(DB_ID, COLLECTIONS.horarios, ID.unique(), horariosPayload);
-          } catch (err409) {
-            if (err409?.code !== 409) throw err409;
-            // 409 = já existe mas query não achou — ignora e continua
-          }
+        // Upsert: 409 é esperado e tratado silenciosamente pela função
+        // Garante idempotência - múltiplas tentativas do onboarding não criam duplicatas
+        try {
+          await upsertDocument("horarios", [Query.equal("barbearia_id", barbeariaId), Query.equal("dia_semana", dia_semana)], horariosPayload);
+        } catch (err) {
+          // Rethrow só se for erro grave (não 409)
+          if (err?.code !== 409) throw err;
+          // 409 com upsert significa que já existe mas não conseguimos atualizar — ignora
         }
       }
 
@@ -365,11 +372,14 @@ export default function Onboarding() {
         });
       }
 
-      // 6) Recarregar barbearia no contexto e redirecionar
+      // 6) Redirecionar para dashboard
+      // ⚠️ IMPORTANTE - FLUXO CORRETO PER APPWRITE DOCS:
+      // - ❌ NÃO chamar getAccount() aqui! Pode perder sessão localStorage se custom domain não configurado
+      // - ✅ Confiar na sessão criada durante login (SDK mantém automaticamente)
+      // - ✅ BarbeariaGuard verifica onboarding_completo=true quando dashboard carregar
+      // - ✅ Se não estiver logado, BarbeariaGuard redireciona de volta para /login
+      // REF: https://appwrite.io/docs/products/auth/email-password#login
       if (slug) {
-        // Força recarregamento do contexto antes de navegar
-        // para que o BarbeariaGuard encontre a barbearia e onboarding_completo=true
-        try { await recarregarBarbearia(); } catch { /* ignora */ }
         navigate(`/dashboard/${slug}`, { replace: true });
       } else {
         console.error("Não foi possível redirecionar: slug não encontrado.");

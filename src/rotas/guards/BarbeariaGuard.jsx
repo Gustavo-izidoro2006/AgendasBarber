@@ -22,24 +22,27 @@ export default function BarbeariaGuard() {
 
     async function checkSetup() {
       try {
-        // Busca direto pelo $id da barbearia em configuracoes
-        // Evita Query.equal("barbearia_id") que falha com Relationship
+        // QUERY COM RELATIONSHIP FIELDS: Appwrite documenta que Query.equal com relationship fields
+        // pode falhar silenciosamente. Estratégia: busca sem filtro e filtra no client.
+        // REF: https://appwrite.io/docs/products/databases/relationships#limitations
         const configRes = await databases.listDocuments(
           DB_ID,
           COLLECTIONS.configuracoes,
-          [] // busca todos, filtra no cliente pelo barbearia_id
+          [] // Sem filtro - carrega TODOS os configuracoes docs
         );
 
         if (cancelled) return;
 
-        // Procura o config doc desta barbearia
+        // Filtra no client-side pela barbearia_id (evita limitation do Query com relationship)
         const configDoc = configRes?.documents?.find(
           (d) =>
             d.barbearia_id === barbearia.$id ||
             d.barbearia_id?.$id === barbearia.$id
         ) ?? null;
 
-        // Se onboarding_completo === true, vai pro dashboard direto
+        // Verifica se onboarding foi completado
+        // ✅ Se true: permite acesso ao dashboard
+        // ❌ Se false/null: redireciona de volta para onboarding
         const onboardingCompleto = configDoc?.onboarding_completo === true;
 
         setSetupComplete(onboardingCompleto);
