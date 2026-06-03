@@ -2,27 +2,7 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSessaoBarbearia } from "../contextos/SessaoBarbeariaContexto";
 import { useBarbearia } from "../contextos/BarbeariaContexto";
-import { databases, COLLECTIONS, DB_ID, Query, ID, upsertById } from "../lib/appwrite";
-import { criarServico } from "../services/servicosService";
-
-// ─── helpers ────────────────────────────────────────────────────────────────
-
-/**
- * Gera um ID determinístico baseado em uma string.
- * Mesmo input → mesmo output → sem 409 em reexecuções.
- * Formato: primeiros 36 chars de base36 do hash simples.
- */
-function deterministicId(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (Math.imul(31, hash) + str.charCodeAt(i)) | 0;
-  }
-  const unsigned = (hash >>> 0).toString(36);
-  // Garante 8 chars e prefixo para Appwrite ID válido (não pode começar com número)
-  return "id" + unsigned.padStart(8, "0").substring(0, 8);
-}
-
-// ─── componentes ─────────────────────────────────────────────────────────────
+import { databases, COLLECTIONS, DB_ID, Query, ID, upsertByQuery } from "../lib/appwrite";
 
 function Progresso({ etapaAtual, total }) {
   const percent = Math.round((etapaAtual / total) * 100);
@@ -35,7 +15,14 @@ function Progresso({ etapaAtual, total }) {
         <div style={{ color: "rgba(255,255,255,0.65)", fontSize: 13 }}>{percent}%</div>
       </div>
       <div style={{ height: 10, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
-        <div style={{ width: `${percent}%`, height: "100%", background: "linear-gradient(90deg,#FD366E,#F2A63A)", transition: "width 0.3s ease" }} />
+        <div
+          style={{
+            width: `${percent}%`,
+            height: "100%",
+            background: "linear-gradient(90deg,#FD366E,#F2A63A)",
+            transition: "width 0.3s ease",
+          }}
+        />
       </div>
     </div>
   );
@@ -43,7 +30,18 @@ function Progresso({ etapaAtual, total }) {
 
 function Card({ children }) {
   return (
-    <div style={{ width: "100%", maxWidth: 980, margin: "0 auto", padding: 22, borderRadius: 18, background: "linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))", border: "1px solid rgba(255,255,255,0.10)", boxShadow: "0 20px 60px rgba(0,0,0,0.35)" }}>
+    <div
+      style={{
+        width: "100%",
+        maxWidth: 980,
+        margin: "0 auto",
+        padding: 22,
+        borderRadius: 18,
+        background: "linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))",
+        border: "1px solid rgba(255,255,255,0.10)",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
+      }}
+    >
       {children}
     </div>
   );
@@ -52,7 +50,20 @@ function Card({ children }) {
 function Botao({ children, variante = "primario", ...props }) {
   const bg = variante === "secundario" ? "rgba(255,255,255,0.06)" : "#FD366E";
   return (
-    <button {...props} style={{ padding: "12px 18px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.10)", background: bg, color: "white", cursor: props.disabled ? "not-allowed" : "pointer", fontWeight: 900, opacity: props.disabled ? 0.5 : 1, ...(props.style || {}) }}>
+    <button
+      {...props}
+      style={{
+        padding: "12px 18px",
+        borderRadius: 14,
+        border: "1px solid rgba(255,255,255,0.10)",
+        background: bg,
+        color: "white",
+        cursor: props.disabled ? "not-allowed" : "pointer",
+        fontWeight: 900,
+        opacity: props.disabled ? 0.5 : 1,
+        ...(props.style || {}),
+      }}
+    >
       {children}
     </button>
   );
@@ -68,13 +79,15 @@ function Campo({ label, children }) {
 }
 
 const inputStyle = {
-  width: "100%", padding: "12px", borderRadius: 14,
+  width: "100%",
+  padding: "12px",
+  borderRadius: 14,
   border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(255,255,255,0.04)", color: "white", outline: "none",
+  background: "rgba(255,255,255,0.04)",
+  color: "white",
+  outline: "none",
   boxSizing: "border-box",
 };
-
-// ─── página ──────────────────────────────────────────────────────────────────
 
 export default function Onboarding() {
   const { carregando, usuario } = useSessaoBarbearia();
@@ -88,34 +101,38 @@ export default function Onboarding() {
     if (!usuario) navigate("/login", { replace: true });
   }, [carregando, usuario, navigate]);
 
-  const etapas = useMemo(() => [
-    { chave: "horarios", titulo: "Horários" },
-    { chave: "servicos", titulo: "Serviços" },
-    { chave: "precos",   titulo: "Preços"   },
-  ], []);
+  const etapas = useMemo(
+    () => [
+      { chave: "horarios", titulo: "Horários" },
+      { chave: "servicos", titulo: "Serviços" },
+      { chave: "precos", titulo: "Preços" },
+    ],
+    []
+  );
 
   const [etapaIndex, setEtapaIndex] = useState(0);
   const [horarios, setHorarios] = useState({});
   const [servicos, setServicos] = useState([]);
   const [precos, setPrecos] = useState({});
 
-  const total     = etapas.length;
+  const total = etapas.length;
   const etapaAtual = etapaIndex + 1;
   const etapaChave = etapas[etapaIndex]?.chave;
 
-  const avancar = () => setEtapaIndex(i => Math.min(total - 1, i + 1));
-  const voltar  = () => setEtapaIndex(i => Math.max(0, i - 1));
+  const avancar = () => setEtapaIndex((i) => Math.min(total - 1, i + 1));
+  const voltar = () => setEtapaIndex((i) => Math.max(0, i - 1));
 
-  // ── FINALIZAR ─────────────────────────────────────────────────────────────
   const finalizar = useCallback(async () => {
     if (salvando) return;
     setSalvando(true);
     setErroSalvar(null);
 
     try {
-      // 1) Resolve barbeariaId e slug
       const user = usuario;
-      if (!user) { navigate("/login", { replace: true }); return; }
+      if (!user) {
+        navigate("/login", { replace: true });
+        return;
+      }
 
       let barbeariaDoc = barbearia?.$id ? barbearia : null;
 
@@ -131,7 +148,11 @@ export default function Onboarding() {
         const nome = user?.name ?? "Barbearia";
         const slug = nome.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
         barbeariaDoc = await databases.createDocument(DB_ID, COLLECTIONS.barbearias, ID.unique(), {
-          nome, slug, email: user?.email ?? "", user_id: user.$id, status: "ativo",
+          nome,
+          slug,
+          email: user?.email ?? "",
+          user_id: user.$id,
+          status: "ativo",
         });
       }
 
@@ -139,21 +160,24 @@ export default function Onboarding() {
       const slug = barbeariaDoc.slug;
       if (!barbeariaId || !slug) throw new Error("Dados da barbearia não resolvidos.");
 
-      // 2) Configuracoes — ID determinístico: "cfg-" + barbeariaId truncado
-      //    Usando upsertById (PUT) do SDK — cria se não existe, atualiza se existe.
-      //    ZERO 409 porque o ID é sempre o mesmo para a mesma barbearia.
-      const configId = deterministicId("config-" + barbeariaId);
-      await upsertById("configuracoes", configId, {
-        barbearia_id: barbeariaId,
-        onboarding_completo: false,
-        intervalo_agendamento: 30,
-        antecedencia_minima: 1,
-      });
+      await upsertByQuery(
+        "configuracoes",
+        [
+          Query.equal("barbearia_id", barbeariaId),
+          Query.limit(1),
+        ],
+        {
+          barbearia_id: barbeariaId,
+          onboarding_completo: false,
+          intervalo_agendamento: 30,
+          antecedencia_minima: 1,
+        }
+      );
 
-      // 3) Horários — ID determinístico por (barbeariaId + dia_semana)
       const mapDias = { dom: 0, seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, sab: 6 };
-      const abertura  = horarios?.inicio || "08:00";
-      const fechamento = horarios?.fim   || "18:00";
+      const abertura = horarios?.inicio || "08:00";
+      const fechamento = horarios?.fim || "18:00";
+
       const diasSel = Object.entries(horarios)
         .filter(([k, v]) => typeof v === "boolean" && v)
         .map(([k]) => k);
@@ -161,55 +185,75 @@ export default function Onboarding() {
       for (const ch of diasSel) {
         const dia_semana = mapDias[ch];
         if (dia_semana === undefined) continue;
-        const horarioId = deterministicId("horario-" + barbeariaId + "-" + dia_semana);
-        await upsertById("horarios", horarioId, {
-          barbearia_id: barbeariaId,
-          dia_semana,
-          abertura,
-          fechamento,
-          ativo: "true",
-        });
+
+        await upsertByQuery(
+          "horarios",
+          [
+            Query.equal("barbearia_id", barbeariaId),
+            Query.equal("dia_semana", dia_semana),
+            Query.limit(1),
+          ],
+          {
+            barbearia_id: barbeariaId,
+            dia_semana,
+            abertura,
+            fechamento,
+            ativo: true,
+          }
+        );
       }
 
-      // 4) Serviços — ID determinístico por (barbeariaId + nome do serviço)
       for (const srv of servicos) {
         if (!srv.nome?.trim()) continue;
+
+        const nome = srv.nome.trim();
         const duracao = String(srv.duracaoMin ?? 30);
         const valorRaw = precos?.[srv.id];
-        const valor = (valorRaw != null && valorRaw !== "") ? String(valorRaw) : "0";
-        const servicoId = deterministicId("servico-" + barbeariaId + "-" + srv.nome.trim().toLowerCase());
-        await upsertById("servicos", servicoId, {
-          barbearia_id: barbeariaId,
-          nome: srv.nome.trim(),
-          descricao: srv.descricao?.trim() || " ",
-          valor,
-          duracao,
-          status: "ativo",
-          criado_em: new Date().toISOString(),
-        });
+        const valor = valorRaw != null && valorRaw !== "" ? String(valorRaw) : "0";
+
+        await upsertByQuery(
+          "servicos",
+          [
+            Query.equal("barbearia_id", barbeariaId),
+            Query.equal("nome", nome),
+            Query.limit(1),
+          ],
+          {
+            barbearia_id: barbeariaId,
+            nome,
+            descricao: srv.descricao?.trim() || " ",
+            valor,
+            duracao,
+            status: "ativo",
+            criado_em: new Date().toISOString(),
+          }
+        );
       }
 
-      // 5) Marca onboarding como completo (mesmo ID determinístico)
-      await upsertById("configuracoes", configId, {
-        barbearia_id: barbeariaId,
-        onboarding_completo: true,
-        intervalo_agendamento: 30,
-        antecedencia_minima: 1,
-      });
+      await upsertByQuery(
+        "configuracoes",
+        [
+          Query.equal("barbearia_id", barbeariaId),
+          Query.limit(1),
+        ],
+        {
+          barbearia_id: barbeariaId,
+          onboarding_completo: true,
+          intervalo_agendamento: 30,
+          antecedencia_minima: 1,
+        }
+      );
 
-      // 6) Atualiza o contexto de barbearia localmente e navega para dashboard
       setBarbearia(barbeariaDoc);
       navigate(`/dashboard/${slug}`, { replace: true });
-
     } catch (err) {
       console.error("Onboarding finalizar() erro:", err?.message, err);
       setErroSalvar(err?.message || "Erro ao salvar. Tente novamente.");
     } finally {
       setSalvando(false);
     }
-  }, [salvando, usuario, barbearia, horarios, servicos, precos, navigate]);
+  }, [salvando, usuario, barbearia, horarios, servicos, precos, navigate, setBarbearia]);
 
-  // ── RENDER ────────────────────────────────────────────────────────────────
   return (
     <main style={{ padding: 24, color: "white", minHeight: "100vh", background: "#0a0a0a" }}>
       <style>{`
@@ -221,7 +265,6 @@ export default function Onboarding() {
 
       <Card>
         <div className="onboarding-card">
-          {/* Header */}
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
             <div style={{ flex: 1 }}>
               <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800 }}>Configure sua barbearia</h1>
@@ -230,8 +273,26 @@ export default function Onboarding() {
               </p>
               <Progresso etapaAtual={etapaAtual} total={total} />
             </div>
-            <div style={{ minWidth: 220, padding: 14, borderRadius: 16, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              <div style={{ color: "rgba(255,255,255,0.60)", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>Sua barbearia</div>
+            <div
+              style={{
+                minWidth: 220,
+                padding: 14,
+                borderRadius: 16,
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.08)",
+              }}
+            >
+              <div
+                style={{
+                  color: "rgba(255,255,255,0.60)",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                Sua barbearia
+              </div>
               <div style={{ marginTop: 6, fontWeight: 800 }}>{barbearia?.nome || "—"}</div>
               <div style={{ marginTop: 4, fontSize: 12, color: "rgba(255,255,255,0.55)" }}>
                 {barbearia?.slug ? `/${barbearia.slug}` : "slug gerado ao concluir"}
@@ -239,10 +300,7 @@ export default function Onboarding() {
             </div>
           </div>
 
-          {/* Conteúdo da etapa */}
           <div style={{ marginTop: 24 }}>
-
-            {/* ── Etapa 1: Horários ── */}
             {etapaChave === "horarios" && (
               <section>
                 <h2 style={{ marginTop: 0, marginBottom: 4, fontSize: 20, fontWeight: 800 }}>Horários de atendimento</h2>
@@ -253,22 +311,69 @@ export default function Onboarding() {
                   <div>
                     <div style={{ fontWeight: 700, marginBottom: 10, fontSize: 14 }}>Dias da semana</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                      {[["seg","Segunda"],["ter","Terça"],["qua","Quarta"],["qui","Quinta"],["sex","Sexta"],["sab","Sábado"],["dom","Domingo"]].map(([ch, label]) => (
-                        <label key={ch} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 12, background: horarios[ch] ? "rgba(253,54,110,0.12)" : "rgba(255,255,255,0.03)", border: horarios[ch] ? "1px solid rgba(253,54,110,0.35)" : "1px solid rgba(255,255,255,0.08)", cursor: "pointer", transition: "all 0.15s" }}>
+                      {[
+                        ["seg", "Segunda"],
+                        ["ter", "Terça"],
+                        ["qua", "Quarta"],
+                        ["qui", "Quinta"],
+                        ["sex", "Sexta"],
+                        ["sab", "Sábado"],
+                        ["dom", "Domingo"],
+                      ].map(([ch, label]) => (
+                        <label
+                          key={ch}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: "10px 12px",
+                            borderRadius: 12,
+                            background: horarios[ch] ? "rgba(253,54,110,0.12)" : "rgba(255,255,255,0.03)",
+                            border: horarios[ch]
+                              ? "1px solid rgba(253,54,110,0.35)"
+                              : "1px solid rgba(255,255,255,0.08)",
+                            cursor: "pointer",
+                            transition: "all 0.15s",
+                          }}
+                        >
                           <span style={{ fontSize: 13, fontWeight: 700 }}>{label}</span>
-                          <input type="checkbox" checked={!!horarios[ch]} onChange={e => setHorarios(h => ({ ...h, [ch]: e.target.checked }))} style={{ accentColor: "#FD366E", width: 16, height: 16 }} />
+                          <input
+                            type="checkbox"
+                            checked={!!horarios[ch]}
+                            onChange={(e) => setHorarios((h) => ({ ...h, [ch]: e.target.checked }))}
+                            style={{ accentColor: "#FD366E", width: 16, height: 16 }}
+                          />
                         </label>
                       ))}
                     </div>
                   </div>
                   <div>
                     <Campo label="Horário de início">
-                      <input type="time" value={horarios.inicio ?? ""} onChange={e => setHorarios(h => ({ ...h, inicio: e.target.value }))} style={inputStyle} />
+                      <input
+                        type="time"
+                        value={horarios.inicio ?? ""}
+                        onChange={(e) => setHorarios((h) => ({ ...h, inicio: e.target.value }))}
+                        style={inputStyle}
+                      />
                     </Campo>
                     <Campo label="Horário de término">
-                      <input type="time" value={horarios.fim ?? ""} onChange={e => setHorarios(h => ({ ...h, fim: e.target.value }))} style={inputStyle} />
+                      <input
+                        type="time"
+                        value={horarios.fim ?? ""}
+                        onChange={(e) => setHorarios((h) => ({ ...h, fim: e.target.value }))}
+                        style={inputStyle}
+                      />
                     </Campo>
-                    <div style={{ padding: 14, borderRadius: 14, background: "rgba(253,54,110,0.08)", border: "1px solid rgba(253,54,110,0.20)", fontSize: 13, color: "rgba(255,255,255,0.80)" }}>
+                    <div
+                      style={{
+                        padding: 14,
+                        borderRadius: 14,
+                        background: "rgba(253,54,110,0.08)",
+                        border: "1px solid rgba(253,54,110,0.20)",
+                        fontSize: 13,
+                        color: "rgba(255,255,255,0.80)",
+                      }}
+                    >
                       Os slots de horário serão gerados automaticamente entre o início e o término, com intervalos de 30 minutos.
                     </div>
                   </div>
@@ -276,32 +381,106 @@ export default function Onboarding() {
               </section>
             )}
 
-            {/* ── Etapa 2: Serviços ── */}
             {etapaChave === "servicos" && (
               <section>
                 <h2 style={{ marginTop: 0, marginBottom: 4, fontSize: 20, fontWeight: 800 }}>Serviços oferecidos</h2>
-                <p style={{ marginTop: 0, color: "rgba(255,255,255,0.70)", fontSize: 14 }}>Adicione os serviços da sua barbearia.</p>
+                <p style={{ marginTop: 0, color: "rgba(255,255,255,0.70)", fontSize: 14 }}>
+                  Adicione os serviços da sua barbearia.
+                </p>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginTop: 16 }}>
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                       <span style={{ fontWeight: 700 }}>Lista de serviços</span>
-                      <button type="button" onClick={() => { const id = `srv-${Date.now()}`; setServicos(s => [...s, { id, nome: "", duracaoMin: 30 }]); }} style={{ padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 13 }}>+ Adicionar</button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const id = `srv-${Date.now()}`;
+                          setServicos((s) => [...s, { id, nome: "", duracaoMin: 30 }]);
+                        }}
+                        style={{
+                          padding: "8px 14px",
+                          borderRadius: 10,
+                          background: "rgba(255,255,255,0.06)",
+                          border: "1px solid rgba(255,255,255,0.10)",
+                          color: "white",
+                          cursor: "pointer",
+                          fontWeight: 700,
+                          fontSize: 13,
+                        }}
+                      >
+                        + Adicionar
+                      </button>
                     </div>
                     <div style={{ display: "grid", gap: 10 }}>
                       {servicos.length === 0 && (
-                        <div style={{ padding: 16, borderRadius: 12, background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.10)", textAlign: "center", color: "rgba(255,255,255,0.45)", fontSize: 14 }}>
+                        <div
+                          style={{
+                            padding: 16,
+                            borderRadius: 12,
+                            background: "rgba(255,255,255,0.02)",
+                            border: "1px dashed rgba(255,255,255,0.10)",
+                            textAlign: "center",
+                            color: "rgba(255,255,255,0.45)",
+                            fontSize: 14,
+                          }}
+                        >
                           Nenhum serviço adicionado ainda
                         </div>
                       )}
-                      {servicos.map(srv => (
-                        <div key={srv.id} style={{ padding: 14, borderRadius: 14, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                      {servicos.map((srv) => (
+                        <div
+                          key={srv.id}
+                          style={{
+                            padding: 14,
+                            borderRadius: 14,
+                            background: "rgba(255,255,255,0.03)",
+                            border: "1px solid rgba(255,255,255,0.08)",
+                          }}
+                        >
                           <Campo label="Nome">
-                            <input value={srv.nome} onChange={e => { const v = e.target.value; setServicos(l => l.map(x => x.id === srv.id ? { ...x, nome: v } : x)); }} placeholder="Ex: Corte simples" style={inputStyle} />
+                            <input
+                              value={srv.nome}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setServicos((l) => l.map((x) => (x.id === srv.id ? { ...x, nome: v } : x)));
+                              }}
+                              placeholder="Ex: Corte simples"
+                              style={inputStyle}
+                            />
                           </Campo>
                           <Campo label="Duração (min)">
-                            <input type="number" min={5} step={5} value={srv.duracaoMin} onChange={e => { const v = Number(e.target.value); setServicos(l => l.map(x => x.id === srv.id ? { ...x, duracaoMin: v } : x)); }} style={inputStyle} />
+                            <input
+                              type="number"
+                              min={5}
+                              step={5}
+                              value={srv.duracaoMin}
+                              onChange={(e) => {
+                                const v = Number(e.target.value);
+                                setServicos((l) => l.map((x) => (x.id === srv.id ? { ...x, duracaoMin: v } : x)));
+                              }}
+                              style={inputStyle}
+                            />
                           </Campo>
-                          <button type="button" onClick={() => { setServicos(l => l.filter(x => x.id !== srv.id)); setPrecos(p => { const n = { ...p }; delete n[srv.id]; return n; }); }} style={{ padding: "8px 12px", borderRadius: 10, background: "rgba(255,80,80,0.10)", border: "1px solid rgba(255,80,80,0.20)", color: "#ff8080", cursor: "pointer", fontSize: 13 }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setServicos((l) => l.filter((x) => x.id !== srv.id));
+                              setPrecos((p) => {
+                                const n = { ...p };
+                                delete n[srv.id];
+                                return n;
+                              });
+                            }}
+                            style={{
+                              padding: "8px 12px",
+                              borderRadius: 10,
+                              background: "rgba(255,80,80,0.10)",
+                              border: "1px solid rgba(255,80,80,0.20)",
+                              color: "#ff8080",
+                              cursor: "pointer",
+                              fontSize: 13,
+                            }}
+                          >
                             Remover
                           </button>
                         </div>
@@ -309,14 +488,32 @@ export default function Onboarding() {
                     </div>
                   </div>
                   <div>
-                    <div style={{ padding: 16, borderRadius: 14, background: "rgba(242,166,58,0.08)", border: "1px solid rgba(242,166,58,0.20)" }}>
+                    <div
+                      style={{
+                        padding: 16,
+                        borderRadius: 14,
+                        background: "rgba(242,166,58,0.08)",
+                        border: "1px solid rgba(242,166,58,0.20)",
+                      }}
+                    >
                       <div style={{ fontWeight: 700, marginBottom: 6 }}>Pré-visualização</div>
                       {servicos.length === 0 ? (
-                        <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 13 }}>Adicione serviços para ver a pré-visualização</div>
+                        <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 13 }}>
+                          Adicione serviços para ver a pré-visualização
+                        </div>
                       ) : (
                         <div style={{ display: "grid", gap: 8 }}>
-                          {servicos.map(srv => (
-                            <div key={srv.id} style={{ display: "flex", justifyContent: "space-between", padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,0.04)" }}>
+                          {servicos.map((srv) => (
+                            <div
+                              key={srv.id}
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                padding: "10px 12px",
+                                borderRadius: 10,
+                                background: "rgba(255,255,255,0.04)",
+                              }}
+                            >
                               <div>
                                 <div style={{ fontWeight: 700, fontSize: 14 }}>{srv.nome || "—"}</div>
                                 <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>{srv.duracaoMin} min</div>
@@ -334,32 +531,79 @@ export default function Onboarding() {
               </section>
             )}
 
-            {/* ── Etapa 3: Preços ── */}
             {etapaChave === "precos" && (
               <section>
                 <h2 style={{ marginTop: 0, marginBottom: 4, fontSize: 20, fontWeight: 800 }}>Preços</h2>
-                <p style={{ marginTop: 0, color: "rgba(255,255,255,0.70)", fontSize: 14 }}>Defina o preço de cada serviço.</p>
+                <p style={{ marginTop: 0, color: "rgba(255,255,255,0.70)", fontSize: 14 }}>
+                  Defina o preço de cada serviço.
+                </p>
                 {servicos.length === 0 ? (
-                  <div style={{ marginTop: 16, padding: 20, borderRadius: 14, background: "rgba(255,255,255,0.03)", border: "1px dashed rgba(255,255,255,0.10)", textAlign: "center", color: "rgba(255,255,255,0.45)" }}>
+                  <div
+                    style={{
+                      marginTop: 16,
+                      padding: 20,
+                      borderRadius: 14,
+                      background: "rgba(255,255,255,0.03)",
+                      border: "1px dashed rgba(255,255,255,0.10)",
+                      textAlign: "center",
+                      color: "rgba(255,255,255,0.45)",
+                    }}
+                  >
                     Nenhum serviço cadastrado. Volte à etapa anterior e adicione serviços.
                   </div>
                 ) : (
                   <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
-                    {servicos.map(srv => (
-                      <div key={srv.id} style={{ padding: 14, borderRadius: 14, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", display: "grid", gridTemplateColumns: "1fr 180px", gap: 12, alignItems: "center" }}>
+                    {servicos.map((srv) => (
+                      <div
+                        key={srv.id}
+                        style={{
+                          padding: 14,
+                          borderRadius: 14,
+                          background: "rgba(255,255,255,0.03)",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          display: "grid",
+                          gridTemplateColumns: "1fr 180px",
+                          gap: 12,
+                          alignItems: "center",
+                        }}
+                      >
                         <div>
                           <div style={{ fontWeight: 700 }}>{srv.nome}</div>
-                          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 2 }}>{srv.duracaoMin} min</div>
+                          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 2 }}>
+                            {srv.duracaoMin} min
+                          </div>
                         </div>
                         <Campo label="Preço (R$)">
-                          <input type="number" min={0} step={0.5} value={precos[srv.id] ?? ""} onChange={e => { const v = e.target.value === "" ? "" : Number(e.target.value); setPrecos(p => ({ ...p, [srv.id]: v })); }} placeholder="0.00" style={inputStyle} />
+                          <input
+                            type="number"
+                            min={0}
+                            step={0.5}
+                            value={precos[srv.id] ?? ""}
+                            onChange={(e) => {
+                              const v = e.target.value === "" ? "" : Number(e.target.value);
+                              setPrecos((p) => ({ ...p, [srv.id]: v }));
+                            }}
+                            placeholder="0.00"
+                            style={inputStyle}
+                          />
                         </Campo>
                       </div>
                     ))}
                   </div>
                 )}
+
                 {erroSalvar && (
-                  <div style={{ marginTop: 16, padding: "12px 16px", borderRadius: 12, background: "rgba(255,80,80,0.10)", border: "1px solid rgba(255,80,80,0.25)", color: "#ff8080", fontSize: 14 }}>
+                  <div
+                    style={{
+                      marginTop: 16,
+                      padding: "12px 16px",
+                      borderRadius: 12,
+                      background: "rgba(255,80,80,0.10)",
+                      border: "1px solid rgba(255,80,80,0.25)",
+                      color: "#ff8080",
+                      fontSize: 14,
+                    }}
+                  >
                     ⚠️ {erroSalvar}
                   </div>
                 )}
@@ -367,20 +611,36 @@ export default function Onboarding() {
             )}
           </div>
 
-          {/* Rodapé */}
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 24 }}>
-            <Botao variante="secundario" onClick={voltar} disabled={etapaIndex === 0} type="button">Voltar</Botao>
+            <Botao variante="secundario" onClick={voltar} disabled={etapaIndex === 0} type="button">
+              Voltar
+            </Botao>
+
             {etapaIndex === total - 1 ? (
               <Botao onClick={finalizar} disabled={salvando} type="button">
                 {salvando ? (
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ width: 16, height: 16, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "white", borderRadius: "50%", animation: "spin 0.6s linear infinite", display: "inline-block" }} />
+                    <span
+                      style={{
+                        width: 16,
+                        height: 16,
+                        border: "2px solid rgba(255,255,255,0.3)",
+                        borderTopColor: "white",
+                        borderRadius: "50%",
+                        animation: "spin 0.6s linear infinite",
+                        display: "inline-block",
+                      }}
+                    />
                     Salvando...
                   </span>
-                ) : "Concluir"}
+                ) : (
+                  "Concluir"
+                )}
               </Botao>
             ) : (
-              <Botao onClick={avancar} type="button">Continuar</Botao>
+              <Botao onClick={avancar} type="button">
+                Continuar
+              </Botao>
             )}
           </div>
         </div>
