@@ -63,27 +63,28 @@ async function upsertById(key, documentId, payload) {
   if (!DB_ID) throw new Error("VITE_APPWRITE_DATABASE_ID não configurado");
   const collId = getCollectionId(key);
 
-  // ── 1) Tenta buscar documento existente pelas constraints únicas ─────────
-  const existingDoc = await _findExistingDoc(key, payload, collId);
-  if (existingDoc?.$id) {
-    // Documento já existe → atualiza pelo ID real
-    return await databases.updateDocument(DB_ID, collId, existingDoc.$id, payload);
-  }
-
-  // ── 2) Não existe → tenta criar com o ID determinístico ──────────────────
+  // Estratégia correta para evitar 409->404:
+  // 1) Tenta criar sempre com o documentId determinístico.
+  // 2) Se der 409 (já existe), tenta buscar O MESMO ID pelo getDocument.
+  // 3) Atualiza usando o $id retornado (garante consistência).
   try {
     return await databases.createDocument(DB_ID, collId, documentId, payload);
   } catch (e) {
-    if (e?.code === 409 || e?.status === 409) {
-      // Race condition ou constraint não coberta na busca → busca de novo e atualiza
-      const doc = await _findExistingDoc(key, payload, collId);
-      if (doc?.$id) {
-        return await databases.updateDocument(DB_ID, collId, doc.$id, payload);
+    if (!(e?.code === 409 || e?.status === 409)) throw e;
+
+    // Já existe para o mesmo documentId → busca pelo $id determinístico
+    try {
+      const doc = await databases.getDocument(DB_ID, collId, documentId);
+      return await databases.updateDocument(DB_ID, collId, doc.$id, payload);
+    } catch (getErr) {
+      // Se por algum motivo não existir exatamente nesse ID (ex: dados antigos/ID divergente),
+      // cai no fallback por constraints únicas (lista+filtro) e atualiza o que achar.
+      const existingDoc = await _findExistingDoc(key, payload, collId);
+      if (existingDoc?.$id) {
+        return await databases.updateDocument(DB_ID, collId, existingDoc.$id, payload);
       }
-      // Último recurso: tenta atualizar pelo ID determinístico
-      return await databases.updateDocument(DB_ID, collId, documentId, payload);
+      throw getErr;
     }
-    throw e;
   }
 }
 
