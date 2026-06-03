@@ -6,18 +6,27 @@ import { account, databases, COLLECTIONS, DB_ID, Query } from "../lib/appwrite";
 import { ID } from "appwrite";
 
 const inputStyle = {
-  width: "100%", padding: "10px 14px",
+  width: "100%", padding: "12px 14px",
   borderRadius: "var(--radius-sm)", border: "1px solid var(--border-default)",
   background: "rgba(255,255,255,0.03)", color: "white", fontWeight: 500, fontSize: 14,
   outline: "none", boxSizing: "border-box",
   transition: "all var(--duration-fast) var(--ease-out)",
+  fontFamily: "inherit",
 };
-const inputFocus = (e) => e.target.style.borderColor = "var(--border-focus)";
-const inputBlur = (e) => e.target.style.borderColor = "var(--border-default)";
-const labelStyle = { display: "block", marginBottom: 6, fontWeight: 700, fontSize: 13, color: "var(--text-secondary)" };
+const inputFocus = (e) => {
+  e.target.style.borderColor = "var(--border-focus)";
+  e.target.style.boxShadow = "0 0 0 3px rgba(232,40,74,0.1)";
+};
+const inputBlur = (e) => {
+  e.target.style.borderColor = "var(--border-default)";
+  e.target.style.boxShadow = "none";
+};
+const labelStyle = {
+  display: "block", marginBottom: 7, fontWeight: 600, fontSize: 11,
+  color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em",
+};
 
 function formatarDataISOParaPT(dataISO) {
-  // dataISO: YYYY-MM-DD
   const [y, m, d] = dataISO.split("-").map((x) => Number(x));
   const dt = new Date(y, m - 1, d);
   return dt.toLocaleDateString("pt-BR");
@@ -29,130 +38,121 @@ function formatarMesAno(date) {
 
 function Modal({ aberto, titulo, onFechar, children }) {
   if (!aberto) return null;
-
   return (
     <div
       style={{
         position: "fixed", inset: 0,
-        background: "rgba(0,0,0,0.65)", zIndex: 1000,
+        background: "rgba(0,0,0,0.7)", zIndex: 1000,
         display: "flex", alignItems: "center", justifyContent: "center", padding: 18,
-        backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+        backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)",
         animation: "fadeIn 0.2s ease",
       }}
       role="dialog" aria-modal="true" onMouseDown={onFechar}
     >
       <div
         style={{
-          width: "100%", maxWidth: 720,
+          width: "100%", maxWidth: 520,
           borderRadius: "var(--radius-xl)",
-          background: "rgba(14,14,18,0.95)",
+          background: "rgba(13,13,16,0.98)",
           border: "1px solid var(--border-default)",
           boxShadow: "var(--shadow-xl)",
-          color: "white", animation: "scaleIn 0.2s var(--ease-out)",
+          color: "white",
+          animation: "scaleIn 0.22s var(--ease-out)",
+          overflow: "hidden",
         }}
         onMouseDown={(e) => e.stopPropagation()}
       >
+        {/* Modal top bar */}
+        <div style={{ height: 3, background: "linear-gradient(90deg, var(--accent), var(--gold))" }} />
         <div style={{
-          padding: "16px 20px", display: "flex", alignItems: "center",
-          justifyContent: "space-between", gap: 12,
+          padding: "18px 22px",
+          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
           borderBottom: "1px solid var(--border-subtle)",
         }}>
-          <div style={{ fontWeight: 800, fontSize: 16 }}>{titulo}</div>
+          <div style={{ fontWeight: 700, fontSize: 16, letterSpacing: "-0.01em" }}>{titulo}</div>
           <button onClick={onFechar} style={{
-            width: 36, height: 36, borderRadius: "var(--radius-sm)",
+            width: 32, height: 32, borderRadius: "var(--radius-xs)",
             border: "1px solid var(--border-default)",
-            background: "rgba(255,255,255,0.04)", color: "var(--text-secondary)",
+            background: "transparent", color: "var(--text-muted)",
             cursor: "pointer", fontWeight: 700, fontSize: 18,
             display: "flex", alignItems: "center", justifyContent: "center",
             transition: "all var(--duration-fast) var(--ease-out)",
           }}
-          onMouseEnter={e => { e.currentTarget.style.background = "var(--danger-soft)"; e.currentTarget.style.color = "var(--danger)"; }}
-          onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+          onMouseEnter={e => { e.currentTarget.style.background = "var(--danger-soft)"; e.currentTarget.style.color = "var(--danger)"; e.currentTarget.style.borderColor = "var(--danger-border)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.borderColor = "var(--border-default)"; }}
           >×</button>
         </div>
-        <div style={{ padding: 20 }}>{children}</div>
+        <div style={{ padding: "22px" }}>{children}</div>
       </div>
     </div>
   );
 }
 
-function Card({ children, variante = "normal" }) {
-  const style =
-    variante === "destaque"
-      ? {
-          background: "var(--gold-soft)",
-          border: "1px solid var(--gold-border)",
-        }
-      : variante === "rosa"
-      ? {
-          background: "var(--accent-soft)",
-          border: "1px solid var(--accent-border)",
-        }
-      : {
-          background: "var(--bg-card)",
-          border: "1px solid var(--border-default)",
-        };
-
+function StatCard({ label, value, color, icon, variant }) {
+  const variants = {
+    default: { bg: "var(--bg-card)", border: "var(--border-default)" },
+    gold: { bg: "var(--gold-soft)", border: "var(--gold-border)" },
+    accent: { bg: "var(--accent-soft)", border: "var(--accent-border)" },
+    success: { bg: "var(--success-soft)", border: "var(--success-border)" },
+  };
+  const v = variants[variant] || variants.default;
   return (
-    <div
-      style={{
-        width: "100%",
-        borderRadius: 18,
-        padding: 16,
-        boxShadow: "0 20px 60px rgba(0,0,0,0.22)",
-        color: "white",
-        ...style,
-      }}
-    >
-      {children}
+    <div style={{
+      padding: "20px", borderRadius: "var(--radius-lg)",
+      background: v.bg, border: `1px solid ${v.border}`,
+      boxShadow: "var(--shadow-sm)",
+      transition: "all var(--duration-fast) var(--ease-out)",
+    }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 12 }}>
+        <div style={{
+          fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em",
+          color: "var(--text-muted)",
+        }}>
+          {label}
+        </div>
+        {icon && <span style={{ fontSize: 16, opacity: 0.5 }}>{icon}</span>}
+      </div>
+      <div style={{
+        fontSize: 32, fontWeight: 800, letterSpacing: "-0.04em",
+        color: color || "var(--text-primary)", lineHeight: 1,
+      }}>
+        {value}
+      </div>
     </div>
   );
 }
 
-function Botao({
-  children,
-  onClick,
-  variante = "primario",
-  type = "button",
-  disabled,
-  style,
-}) {
-  const isPrimario = variante === "primario";
-  const base = isPrimario
-    ? {
-        background: "var(--accent)",
-        border: "1px solid rgba(255,255,255,0.08)",
-        color: "white",
-        boxShadow: "0 2px 12px rgba(253,54,110,0.25)",
-      }
-    : variante === "perigo"
-    ? {
-        background: "var(--danger-soft)",
-        border: "1px solid var(--danger-border)",
-        color: "var(--danger)",
-      }
-    : {
-        background: "rgba(255,255,255,0.04)",
-        border: "1px solid var(--border-default)",
-        color: "var(--text-primary)",
-      };
+function Botao({ children, onClick, variante = "primario", type = "button", disabled, style }) {
+  const styles = {
+    primario: {
+      background: "linear-gradient(135deg, var(--accent), #c9213f)",
+      border: "none", color: "white",
+      boxShadow: "0 2px 12px rgba(232,40,74,0.3)",
+    },
+    perigo: {
+      background: "var(--danger-soft)",
+      border: "1px solid var(--danger-border)", color: "var(--danger)",
+    },
+    secundario: {
+      background: "rgba(255,255,255,0.04)",
+      border: "1px solid var(--border-default)", color: "var(--text-primary)",
+    },
+  };
 
   return (
     <button
-      type={type}
-      onClick={onClick}
-      disabled={disabled}
+      type={type} onClick={onClick} disabled={disabled}
       style={{
-        padding: "10px 16px",
-        borderRadius: "var(--radius-sm)",
+        padding: "10px 18px", borderRadius: "var(--radius-sm)",
         cursor: disabled ? "not-allowed" : "pointer",
-        fontWeight: 700, fontSize: 14,
+        fontWeight: 700, fontSize: 14, opacity: disabled ? 0.5 : 1,
         transition: "all var(--duration-fast) var(--ease-out)",
-        ...(base || {}),
+        fontFamily: "inherit",
+        ...(styles[variante] || styles.secundario),
         ...(style || {}),
       }}
-      onMouseEnter={e => { if (!disabled && isPrimario) { e.currentTarget.style.background = "var(--accent-hover)"; } }}
-      onMouseLeave={e => { if (!disabled && isPrimario) { e.currentTarget.style.background = "var(--accent)"; } }}
+      onMouseEnter={e => { if (!disabled && variante === "primario") { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(232,40,74,0.4)"; } }}
+      onMouseLeave={e => { if (!disabled && variante === "primario") { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 2px 12px rgba(232,40,74,0.3)"; } }}
     >
       {children}
     </button>
@@ -160,34 +160,19 @@ function Botao({
 }
 
 function FormServicoModal({ servico, onSalvar, onCancelar }) {
-  const [formData, setFormData] = useState({
-    nome: "",
-    preco: "",
-    duracaoMin: "",
-  });
+  const [formData, setFormData] = useState({ nome: "", preco: "", duracaoMin: "" });
 
   useEffect(() => {
     if (servico) {
-      setFormData({
-        nome: servico.nome || "",
-        preco: String(servico.preco || ""),
-        duracaoMin: String(servico.duracaoMin || ""),
-      });
+      setFormData({ nome: servico.nome || "", preco: String(servico.preco || ""), duracaoMin: String(servico.duracaoMin || "") });
     } else {
-      setFormData({
-        nome: "",
-        preco: "",
-        duracaoMin: "",
-      });
+      setFormData({ nome: "", preco: "", duracaoMin: "" });
     }
   }, [servico]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = (e) => {
@@ -196,113 +181,63 @@ function FormServicoModal({ servico, onSalvar, onCancelar }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
+    <form onSubmit={handleSubmit} style={{ display: "grid", gap: 14 }}>
       <div>
-        <label style={labelStyle}>
-          Nome do serviço *
-        </label>
-        <input
-          type="text"
-          name="nome"
-          value={formData.nome}
-          onChange={handleChange}
-          required
-          style={inputStyle}
-          onFocus={inputFocus}
-          onBlur={inputBlur}
-          placeholder="Ex: Corte de cabelo"
-        />
+        <label style={labelStyle}>Nome do serviço *</label>
+        <input type="text" name="nome" value={formData.nome} onChange={handleChange}
+          required style={inputStyle} onFocus={inputFocus} onBlur={inputBlur}
+          placeholder="Ex: Corte de cabelo" />
       </div>
-
-      <div>
-        <label style={labelStyle}>
-          Preço (R$) *
-        </label>
-        <input
-          type="number"
-          name="preco"
-          value={formData.preco}
-          onChange={handleChange}
-          required
-          step="0.01"
-          min="0"
-          style={inputStyle}
-          onFocus={inputFocus}
-          onBlur={inputBlur}
-          placeholder="0.00"
-        />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div>
+          <label style={labelStyle}>Preço (R$) *</label>
+          <input type="number" name="preco" value={formData.preco} onChange={handleChange}
+            required step="0.01" min="0" style={inputStyle} onFocus={inputFocus} onBlur={inputBlur}
+            placeholder="0.00" />
+        </div>
+        <div>
+          <label style={labelStyle}>Duração (min) *</label>
+          <input type="number" name="duracaoMin" value={formData.duracaoMin} onChange={handleChange}
+            required min="1" style={inputStyle} onFocus={inputFocus} onBlur={inputBlur}
+            placeholder="30" />
+        </div>
       </div>
-
-      <div>
-        <label style={labelStyle}>
-          Duração (minutos) *
-        </label>
-        <input
-          type="number"
-          name="duracaoMin"
-          value={formData.duracaoMin}
-          onChange={handleChange}
-          required
-          min="1"
-          style={inputStyle}
-          onFocus={inputFocus}
-          onBlur={inputBlur}
-          placeholder="30"
-        />
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 }}>
-        <button
-          type="button"
-          onClick={onCancelar}
-          style={{
-            padding: "10px 12px",
-            borderRadius: 10,
-            border: "1px solid rgba(255,255,255,0.15)",
-            background: "rgba(255,255,255,0.05)",
-            color: "white",
-            cursor: "pointer",
-            fontWeight: 900,
-          }}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 8 }}>
+        <button type="button" onClick={onCancelar} style={{
+          padding: "12px", borderRadius: "var(--radius-sm)",
+          border: "1px solid var(--border-default)",
+          background: "rgba(255,255,255,0.03)", color: "var(--text-secondary)",
+          cursor: "pointer", fontWeight: 600, fontSize: 14, fontFamily: "inherit",
+          transition: "all var(--duration-fast) var(--ease-out)",
+        }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--border-hover)"; e.currentTarget.style.color = "white"; }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border-default)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
         >
           Cancelar
         </button>
-        <button
-          type="submit"
-          style={{
-            padding: "10px 12px",
-            borderRadius: 10,
-            border: "1px solid rgba(253,54,110,0.35)",
-            background: "rgba(253,54,110,0.15)",
-            color: "white",
-            cursor: "pointer",
-            fontWeight: 900,
-          }}
-        >
-          Salvar
+        <button type="submit" style={{
+          padding: "12px", borderRadius: "var(--radius-sm)",
+          border: "none",
+          background: "linear-gradient(135deg, var(--accent), #c9213f)",
+          color: "white", cursor: "pointer", fontWeight: 700, fontSize: 14,
+          fontFamily: "inherit",
+          boxShadow: "0 2px 12px rgba(232,40,74,0.3)",
+        }}>
+          Salvar serviço
         </button>
       </div>
     </form>
   );
 }
 
-function Calendario({
-  agendamentos,
-  onSelecionarDia,
-  mesOffset = 0,
-}) {
-  // usa calendário mensal local
+function Calendario({ agendamentos, onSelecionarDia, mesOffset = 0 }) {
   const hoje = new Date();
   const dataReferencia = new Date(hoje.getFullYear(), hoje.getMonth() + mesOffset, 1);
-
   const ano = dataReferencia.getFullYear();
   const mes = dataReferencia.getMonth();
-
   const primeiroDia = new Date(ano, mes, 1);
   const ultimoDia = new Date(ano, mes + 1, 0);
-
-  // JS: 0=domingo, 1=segunda...
-  const inicioSemanaIndex = (primeiroDia.getDay() + 6) % 7; // transforma para começar em seg
+  const inicioSemanaIndex = (primeiroDia.getDay() + 6) % 7;
   const totalDias = ultimoDia.getDate();
 
   const diasComAgendamento = useMemo(() => {
@@ -315,70 +250,67 @@ function Calendario({
     const cells = [];
     const totalCells = inicioSemanaIndex + totalDias;
     const completa = totalCells % 7 === 0 ? totalCells : totalCells + (7 - (totalCells % 7));
-    const total = completa;
-
-    for (let i = 0; i < total; i++) {
+    for (let i = 0; i < completa; i++) {
       const diaNum = i - inicioSemanaIndex + 1;
-      if (diaNum < 1 || diaNum > totalDias) {
-        cells.push({ diaNum: null });
-        continue;
-      }
-
+      if (diaNum < 1 || diaNum > totalDias) { cells.push({ diaNum: null }); continue; }
       const dtISO = `${ano}-${String(mes + 1).padStart(2, "0")}-${String(diaNum).padStart(2, "0")}`;
-      cells.push({
-        diaNum,
-        data: dtISO,
-        temAgendamento: diasComAgendamento.has(dtISO),
-      });
+      cells.push({ diaNum, data: dtISO, temAgendamento: diasComAgendamento.has(dtISO) });
     }
     return cells;
   }, [ano, inicioSemanaIndex, totalDias, mes, diasComAgendamento]);
 
   const diasSemana = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+  const hojeISO = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,"0")}-${String(hoje.getDate()).padStart(2,"0")}`;
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <div style={{ fontWeight: 800, fontSize: 16 }}>{formatarMesAno(dataReferencia)}</div>
+      <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16, letterSpacing: "-0.01em", textTransform: "capitalize" }}>
+        {formatarMesAno(dataReferencia)}
       </div>
-
-      <div style={{
-        marginTop: 12, display: "grid",
-        gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 6,
-      }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 6 }}>
         {diasSemana.map((d) => (
-          <div key="d" style={{
-            textAlign: "center", fontWeight: 700, fontSize: 11,
-            color: "var(--text-muted)", paddingBottom: 6,
-            textTransform: "uppercase", letterSpacing: "0.05em",
+          <div key={d} style={{
+            textAlign: "center", fontWeight: 700, fontSize: 10,
+            color: "var(--text-muted)", paddingBottom: 8,
+            textTransform: "uppercase", letterSpacing: "0.07em",
           }}>
             {d}
           </div>
         ))}
-
         {grid.map((cell, idx) => {
-          if (!cell.diaNum) {
-            return <div key={idx} style={{ height: 44 }} />;
-          }
-
+          if (!cell.diaNum) return <div key={idx} style={{ height: 44 }} />;
+          const isHoje = cell.data === hojeISO;
           const tem = cell.temAgendamento;
           return (
             <button
               key={idx}
               onClick={() => onSelecionarDia(cell.data)}
               style={{
-                height: 44,
-                borderRadius: "var(--radius-sm)",
-                cursor: "pointer", fontSize: 14,
-                border: tem ? "1px solid var(--gold-border)" : "1px solid var(--border-subtle)",
-                background: tem ? "var(--gold-soft)" : "rgba(255,255,255,0.02)",
-                color: tem ? "var(--gold)" : "var(--text-secondary)",
-                fontWeight: 700,
+                height: 44, borderRadius: "var(--radius-sm)",
+                cursor: "pointer", fontSize: 14, fontWeight: isHoje ? 800 : 600,
+                border: tem
+                  ? "1px solid var(--gold-border)"
+                  : isHoje
+                  ? "1px solid var(--accent-border)"
+                  : "1px solid var(--border-subtle)",
+                background: tem
+                  ? "var(--gold-soft)"
+                  : isHoje
+                  ? "var(--accent-soft)"
+                  : "rgba(255,255,255,0.02)",
+                color: tem ? "var(--gold)" : isHoje ? "var(--accent)" : "var(--text-secondary)",
                 transition: "all var(--duration-fast) var(--ease-out)",
+                position: "relative",
               }}
+              onMouseEnter={e => { if (!tem && !isHoje) { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; e.currentTarget.style.color = "white"; } }}
+              onMouseLeave={e => { if (!tem && !isHoje) { e.currentTarget.style.background = "rgba(255,255,255,0.02)"; e.currentTarget.style.color = "var(--text-secondary)"; } }}
               title={tem ? "Possui agendamentos" : "Sem agendamentos"}
             >
               {cell.diaNum}
+              {tem && <div style={{
+                position: "absolute", bottom: 5, left: "50%", transform: "translateX(-50%)",
+                width: 4, height: 4, borderRadius: "50%", background: "var(--gold)",
+              }} />}
             </button>
           );
         })}
@@ -386,6 +318,33 @@ function Calendario({
     </div>
   );
 }
+
+function StatusBadge({ status }) {
+  const map = {
+    ativo: { label: "Ativo", cls: "status-ativo" },
+    cancelado: { label: "Cancelado", cls: "status-cancelado" },
+    concluido: { label: "Concluído", cls: "status-concluido" },
+  };
+  const s = map[status] || { label: status, cls: "status-pendente" };
+  return (
+    <span className={s.cls} style={{
+      padding: "5px 11px", borderRadius: "var(--radius-full)",
+      border: "1px solid", fontWeight: 600, fontSize: 12, letterSpacing: "0.02em",
+    }}>
+      {s.label}
+    </span>
+  );
+}
+
+const TABLE_TH = {
+  textAlign: "left", fontSize: 11, color: "var(--text-muted)", fontWeight: 700,
+  padding: "0 14px 12px", textTransform: "uppercase", letterSpacing: "0.06em",
+  borderBottom: "1px solid var(--border-subtle)",
+};
+const TABLE_TD = {
+  padding: "13px 14px", borderBottom: "1px solid var(--border-subtle)",
+  fontSize: 14, color: "var(--text-primary)",
+};
 
 export default function Dashboard() {
   const { slug } = useParams();
@@ -397,22 +356,19 @@ export default function Dashboard() {
   const [carregandoDados, setCarregandoDados] = useState(true);
   const [erroCarregamento, setErroCarregamento] = useState(null);
 
-  // Guard clause: se não tem slug, impede qualquer render/call perigosa
   useEffect(() => {
-    if (!slug) {
-      navigate("/login", { replace: true });
-    }
+    if (!slug) navigate("/login", { replace: true });
   }, [slug, navigate]);
 
   if (!slug) {
     return (
       <main style={{
-        minHeight: "100vh", padding: 24, color: "white",
-        background: "var(--bg-primary)",
-        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16,
+        minHeight: "100vh", display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center", gap: 16,
+        background: "var(--bg-primary)", color: "white",
       }}>
         <div style={{
-          width: 36, height: 36, border: "3px solid rgba(255,255,255,0.08)",
+          width: 38, height: 38, border: "3px solid var(--border-default)",
           borderTopColor: "var(--accent)", borderRadius: "50%",
           animation: "spin 0.7s linear infinite",
         }} />
@@ -421,8 +377,6 @@ export default function Dashboard() {
     );
   }
 
-
-  // Dados carregados do Appwrite
   const [agendamentos, setAgendamentos] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [servicosState, setServicosState] = useState([]);
@@ -432,52 +386,28 @@ export default function Dashboard() {
     async function carregar() {
       setCarregandoDados(true);
       setErroCarregamento(null);
-
       try {
-        // Valida se o slug da URL corresponde à barbearia do usuário
         const user = await account.get();
-        const barbeariaDocs = await databases.listDocuments(
-          DB_ID,
-          COLLECTIONS.barbearias,
-          [Query.equal("user_id", user.$id)]
-        );
+        const barbeariaDocs = await databases.listDocuments(DB_ID, COLLECTIONS.barbearias, [Query.equal("user_id", user.$id)]);
         const barbeariaDoc = barbeariaDocs?.documents?.[0];
         if (!barbeariaDoc) throw new Error("Barbearia não encontrada para o usuário");
-
-        // Verifica se o slug da URL bate com o slug da barbearia
-        if (barbeariaDoc.slug !== slug) {
-          navigate(`/dashboard/${barbeariaDoc.slug}`, { replace: true });
-          return;
-        }
-
+        if (barbeariaDoc.slug !== slug) { navigate(`/dashboard/${barbeariaDoc.slug}`, { replace: true }); return; }
         if (!mounted) return;
         setBarbearia(barbeariaDoc);
-
-        // Carrega os dados da barbearia usando barbeariaDoc (não o estado)
         const barbeariaId = barbeariaDoc.$id;
-        const COL_AGEND = COLLECTIONS.agendamentos;
-        const COL_CLIENTES = COLLECTIONS.clientes;
-        const COL_SERVICOS = COLLECTIONS.servicos;
-
-        // Helper para buscar com fallback de Relationship
         const buscarComFallback = async (col) => {
           try {
             const resp = await databases.listDocuments(DB_ID, col, [Query.equal("barbearia_id", barbeariaId)]);
             if (resp?.documents?.length > 0) return resp.documents;
-          } catch { /* Relationship pode falhar com Query.equal */ }
-          // Fallback: busca tudo e filtra no cliente
+          } catch { }
           const all = await databases.listDocuments(DB_ID, col, [Query.limit(200)]);
-          return (all?.documents ?? []).filter(
-            (d) => d.barbearia_id === barbeariaId || d.barbearia_id?.$id === barbeariaId
-          );
+          return (all?.documents ?? []).filter((d) => d.barbearia_id === barbeariaId || d.barbearia_id?.$id === barbeariaId);
         };
-
         const [agDocs, clDocs, svDocs] = await Promise.all([
-          DB_ID && COL_AGEND ? buscarComFallback(COL_AGEND) : [],
-          DB_ID && COL_CLIENTES ? buscarComFallback(COL_CLIENTES) : [],
-          DB_ID && COL_SERVICOS ? buscarComFallback(COL_SERVICOS) : [],
+          DB_ID && COLLECTIONS.agendamentos ? buscarComFallback(COLLECTIONS.agendamentos) : [],
+          DB_ID && COLLECTIONS.clientes ? buscarComFallback(COLLECTIONS.clientes) : [],
+          DB_ID && COLLECTIONS.servicos ? buscarComFallback(COLLECTIONS.servicos) : [],
         ]);
-
         if (!mounted) return;
         setAgendamentos(agDocs);
         setClientes(clDocs);
@@ -491,95 +421,55 @@ export default function Dashboard() {
         setCarregandoDados(false);
       }
     }
-
     carregar();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [slug, navigate]);
 
   const [modalServico, setModalServico] = useState({ aberto: false, servico: null });
   const [modalDia, setModalDia] = useState({ aberto: false, data: null });
 
-  const salvarServico = useCallback(
-    async (dados) => {
-      if (!barbearia) return;
-
-      try {
-        if (modalServico.servico?.$id) {
-          // Editar
-          await databases.updateDocument(
-            DB_ID,
-            COLLECTIONS.servicos,
-            modalServico.servico.$id,
-            dados
-          );
-        } else {
-          // Criar novo
-          await databases.createDocument(
-            DB_ID,
-            COLLECTIONS.servicos,
-            ID.unique(),
-            { ...dados, barbearia_id: barbearia.$id }
-          );
-        }
-
-        // Recarrega serviços
-        try {
-          const sv = await databases.listDocuments(DB_ID, COLLECTIONS.servicos, [
-            Query.equal("barbearia_id", barbearia.$id),
-          ]);
-          setServicosState(sv?.documents ?? []);
-        } catch {
-          const all = await databases.listDocuments(DB_ID, COLLECTIONS.servicos, [Query.limit(200)]);
-          setServicosState(
-            (all?.documents ?? []).filter(
-              (d) => d.barbearia_id === barbearia.$id || d.barbearia_id?.$id === barbearia.$id
-            )
-          );
-        }
-        setModalServico({ aberto: false, servico: null });
-      } catch (err) {
-        console.error("Erro ao salvar serviço:", err);
-        alert("Erro ao salvar serviço: " + (err?.message || err));
+  const salvarServico = useCallback(async (dados) => {
+    if (!barbearia) return;
+    try {
+      if (modalServico.servico?.$id) {
+        await databases.updateDocument(DB_ID, COLLECTIONS.servicos, modalServico.servico.$id, dados);
+      } else {
+        await databases.createDocument(DB_ID, COLLECTIONS.servicos, ID.unique(), { ...dados, barbearia_id: barbearia.$id });
       }
-    },
-    [barbearia, modalServico.servico]
-  );
-
-  const deletarServico = useCallback(
-    async (servicoId) => {
-      if (!barbearia || !window.confirm("Tem certeza que deseja deletar este serviço?")) return;
-
       try {
-        await databases.deleteDocument(DB_ID, COLLECTIONS.servicos, servicoId);
-
-        // Recarrega serviços
-        try {
-          const sv = await databases.listDocuments(DB_ID, COLLECTIONS.servicos, [
-            Query.equal("barbearia_id", barbearia.$id),
-          ]);
-          setServicosState(sv?.documents ?? []);
-        } catch {
-          const all = await databases.listDocuments(DB_ID, COLLECTIONS.servicos, [Query.limit(200)]);
-          setServicosState(
-            (all?.documents ?? []).filter(
-              (d) => d.barbearia_id === barbearia.$id || d.barbearia_id?.$id === barbearia.$id
-            )
-          );
-        }
-      } catch (err) {
-        console.error("Erro ao deletar serviço:", err);
-        alert("Erro ao deletar serviço: " + (err?.message || err));
+        const sv = await databases.listDocuments(DB_ID, COLLECTIONS.servicos, [Query.equal("barbearia_id", barbearia.$id)]);
+        setServicosState(sv?.documents ?? []);
+      } catch {
+        const all = await databases.listDocuments(DB_ID, COLLECTIONS.servicos, [Query.limit(200)]);
+        setServicosState((all?.documents ?? []).filter((d) => d.barbearia_id === barbearia.$id || d.barbearia_id?.$id === barbearia.$id));
       }
-    },
-    [barbearia]
-  );
+      setModalServico({ aberto: false, servico: null });
+    } catch (err) {
+      console.error("Erro ao salvar serviço:", err);
+      alert("Erro ao salvar serviço: " + (err?.message || err));
+    }
+  }, [barbearia, modalServico.servico]);
+
+  const deletarServico = useCallback(async (servicoId) => {
+    if (!barbearia || !window.confirm("Tem certeza que deseja deletar este serviço?")) return;
+    try {
+      await databases.deleteDocument(DB_ID, COLLECTIONS.servicos, servicoId);
+      try {
+        const sv = await databases.listDocuments(DB_ID, COLLECTIONS.servicos, [Query.equal("barbearia_id", barbearia.$id)]);
+        setServicosState(sv?.documents ?? []);
+      } catch {
+        const all = await databases.listDocuments(DB_ID, COLLECTIONS.servicos, [Query.limit(200)]);
+        setServicosState((all?.documents ?? []).filter((d) => d.barbearia_id === barbearia.$id || d.barbearia_id?.$id === barbearia.$id));
+      }
+    } catch (err) {
+      console.error("Erro ao deletar serviço:", err);
+      alert("Erro ao deletar serviço: " + (err?.message || err));
+    }
+  }, [barbearia]);
+
   const agendamentosDoDia = useMemo(() => {
     if (!modalDia.data) return [];
-    return agendamentos
-      .filter((a) => a.data === modalDia.data)
-      .sort((a, b) => (a.horario < b.horario ? -1 : 1));
+    return agendamentos.filter((a) => a.data === modalDia.data).sort((a, b) => (a.horario < b.horario ? -1 : 1));
   }, [agendamentos, modalDia.data]);
 
   const metrics = useMemo(() => {
@@ -588,119 +478,126 @@ export default function Dashboard() {
     const cancelados = agendamentos.filter((a) => a.status === "cancelado").length;
     const concluidos = agendamentos.filter((a) => a.status === "concluido").length;
     const totalClientes = clientes.length;
-    
-    // Calcula faturamento (supondo que agendamentos tem preço)
-    const faturamento = agendamentos
-      .filter((a) => a.status === "concluido")
-      .reduce((sum, a) => sum + (parseFloat(a.preco) || 0), 0);
-    
-    // Dias com agendamentos
+    const faturamento = agendamentos.filter((a) => a.status === "concluido").reduce((sum, a) => sum + (parseFloat(a.preco) || 0), 0);
     const diasComAgendamentos = new Set(agendamentos.map((a) => a.data)).size;
-    
     return { total, ativos, cancelados, concluidos, faturamento, totalClientes, diasComAgendamentos };
   }, [agendamentos, clientes]);
 
-  const tAba = {
-    estatisticas: "Estatísticas",
-    agendamentos: "Agendamentos",
-    clientes: "Clientes",
-    servicos: "Serviços",
-    calendario: "Calendário",
-  };
-
-  const itensNav = [
-    { chave: "estatisticas" },
-    { chave: "agendamentos" },
-    { chave: "clientes" },
-    { chave: "servicos" },
-    { chave: "calendario" },
+  const ABAS = [
+    { chave: "estatisticas", label: "Estatísticas", icon: "◈" },
+    { chave: "agendamentos", label: "Agendamentos", icon: "◷" },
+    { chave: "clientes", label: "Clientes", icon: "◎" },
+    { chave: "servicos", label: "Serviços", icon: "✂" },
+    { chave: "calendario", label: "Calendário", icon: "▦" },
   ];
 
   return (
     <div style={{
-      minHeight: "100vh", padding: 20, color: "white",
-      background: "var(--bg-primary)",
+      minHeight: "100vh", background: "var(--bg-primary)", color: "white",
+      padding: "20px",
     }}>
       <div style={{
-        maxWidth: 1280, margin: "0 auto",
-        display: "grid", gridTemplateColumns: "250px 1fr", gap: 20, alignItems: "start",
+        maxWidth: 1300, margin: "0 auto",
+        display: "grid", gridTemplateColumns: "240px 1fr", gap: 20, alignItems: "start",
       }}>
+
+        {/* ── Sidebar ── */}
         <aside style={{ position: "sticky", top: 20 }}>
           <div style={{
-            padding: 18, borderRadius: "var(--radius-lg)",
-            background: "var(--bg-card)", border: "1px solid var(--border-default)",
+            borderRadius: "var(--radius-lg)",
+            background: "var(--bg-card)",
+            border: "1px solid var(--border-default)",
             boxShadow: "var(--shadow-md)",
+            overflow: "hidden",
           }}>
-            {/* Nome barbearia */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-              <div style={{
-                width: 40, height: 40, borderRadius: "var(--radius-md)",
-                background: "var(--accent-soft)", border: "1px solid var(--accent-border)",
-                display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18,
-              }}>✂️</div>
-              <div style={{ overflow: "hidden" }}>
-                <div style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                  Barbearia
-                </div>
-                <div style={{ fontWeight: 800, fontSize: 15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {barbearia?.nome || barbearia?.nomeBarbearia || "—"}
+            {/* Sidebar top accent */}
+            <div style={{ height: 3, background: "linear-gradient(90deg, var(--accent), var(--gold))" }} />
+
+            <div style={{ padding: "20px 16px" }}>
+              {/* Brand */}
+              <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 22, paddingBottom: 18, borderBottom: "1px solid var(--border-subtle)" }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: "var(--radius-sm)", flexShrink: 0,
+                  background: "linear-gradient(135deg, var(--accent), #c9213f)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 16, boxShadow: "0 2px 10px rgba(232,40,74,0.35)",
+                }}>✂</div>
+                <div style={{ overflow: "hidden" }}>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                    Barbearia
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {barbearia?.nome || barbearia?.nomeBarbearia || "—"}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Nav */}
-            <div style={{ display: "grid", gap: 4 }}>
-              {itensNav.map((item) => {
-                const active = aba === item.chave;
-                return (
-                  <button
-                    key={item.chave}
-                    onClick={() => setAba(item.chave)}
-                    style={{
-                      width: "100%", textAlign: "left",
-                      padding: "10px 12px", borderRadius: "var(--radius-sm)",
-                      border: "1px solid",
-                      borderColor: active ? "var(--accent-border)" : "transparent",
-                      background: active ? "var(--accent-soft)" : "transparent",
-                      color: active ? "var(--accent)" : "var(--text-secondary)",
-                      cursor: "pointer", fontWeight: active ? 700 : 500,
-                      fontSize: 14, transition: "all var(--duration-fast) var(--ease-out)",
-                    }}
-                    onMouseEnter={e => { if (!active) { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.color = "var(--text-primary)"; } }}
-                    onMouseLeave={e => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; } }}
-                  >
-                    {tAba[item.chave]}
-                  </button>
-                );
-              })}
-            </div>
+              {/* Nav */}
+              <div style={{ display: "grid", gap: 3 }}>
+                {ABAS.map((item) => {
+                  const active = aba === item.chave;
+                  return (
+                    <button
+                      key={item.chave}
+                      onClick={() => setAba(item.chave)}
+                      style={{
+                        width: "100%", textAlign: "left",
+                        padding: "10px 12px", borderRadius: "var(--radius-sm)",
+                        border: `1px solid ${active ? "var(--accent-border)" : "transparent"}`,
+                        background: active ? "var(--accent-soft)" : "transparent",
+                        color: active ? "var(--accent)" : "var(--text-secondary)",
+                        cursor: "pointer", fontWeight: active ? 700 : 500,
+                        fontSize: 14, transition: "all var(--duration-fast) var(--ease-out)",
+                        display: "flex", alignItems: "center", gap: 9, fontFamily: "inherit",
+                      }}
+                      onMouseEnter={e => { if (!active) { e.currentTarget.style.background = "var(--bg-elevated)"; e.currentTarget.style.color = "var(--text-primary)"; } }}
+                      onMouseLeave={e => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; } }}
+                    >
+                      <span style={{ fontSize: 13, opacity: active ? 1 : 0.6 }}>{item.icon}</span>
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
 
-            <div style={{ marginTop: 14 }}>
-              <Botao
-                variante="perigo"
-                onClick={logout}
-                style={{ width: "100%" }}
-              >
-                Sair
-              </Botao>
+              {/* Logout */}
+              <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border-subtle)" }}>
+                <button onClick={logout} style={{
+                  width: "100%", padding: "10px 12px", borderRadius: "var(--radius-sm)",
+                  border: "1px solid var(--danger-border)", background: "var(--danger-soft)",
+                  color: "var(--danger)", cursor: "pointer", fontWeight: 700, fontSize: 14,
+                  fontFamily: "inherit", transition: "all var(--duration-fast) var(--ease-out)",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(239,68,68,0.15)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "var(--danger-soft)"; }}
+                >
+                  Sair da conta
+                </button>
+              </div>
             </div>
           </div>
         </aside>
 
-        <main style={{ display: "grid", gap: 16 }}>
+        {/* ── Main ── */}
+        <main style={{ display: "grid", gap: 16, animation: "fadeSlideUp 0.35s var(--ease-out) forwards" }}>
+
+          {/* Header */}
           <header style={{
-            padding: 16, borderRadius: "var(--radius-lg)",
+            padding: "16px 20px",
+            borderRadius: "var(--radius-lg)",
             background: "var(--bg-card)", border: "1px solid var(--border-default)",
             boxShadow: "var(--shadow-sm)",
           }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
               <div>
-                <div style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                  Área logada
+                <div style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 4 }}>
+                  Painel de controle
                 </div>
-                <div style={{ fontSize: 22, fontWeight: 800 }}>{tAba[aba]}</div>
+                <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.025em" }}>
+                  {ABAS.find(a => a.chave === aba)?.label}
+                </h1>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <button
                   onClick={() => {
                     const linkUnico = `${window.location.origin}/barbearia/${barbearia?.slug}`;
@@ -708,263 +605,238 @@ export default function Dashboard() {
                     alert("Link copiado para a área de transferência!");
                   }}
                   style={{
-                    padding: "8px 14px", borderRadius: "var(--radius-sm)",
-                    border: "1px solid var(--gold-border)",
-                    background: "var(--gold-soft)", color: "var(--gold)",
-                    cursor: "pointer", fontWeight: 700, fontSize: 13,
-                    transition: "all var(--duration-fast) var(--ease-out)",
+                    padding: "8px 16px", borderRadius: "var(--radius-sm)",
+                    border: "1px solid var(--gold-border)", background: "var(--gold-soft)",
+                    color: "var(--gold)", cursor: "pointer", fontWeight: 700, fontSize: 13,
+                    transition: "all var(--duration-fast) var(--ease-out)", fontFamily: "inherit",
                   }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(212,168,67,0.15)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "var(--gold-soft)"; }}
                   title="Copiar link único para compartilhar com clientes"
                 >
-                  📋 Copiar link
+                  ◎ Copiar link
                 </button>
-                <div style={{ color: "rgba(255,255,255,0.70)", fontSize: 13, fontWeight: 800 }}>
+                <div style={{
+                  fontSize: 13, fontWeight: 600, color: "var(--text-muted)",
+                  padding: "8px 14px", borderRadius: "var(--radius-sm)",
+                  border: "1px solid var(--border-subtle)", background: "var(--bg-elevated)",
+                }}>
                   {usuario?.email || "—"}
                 </div>
               </div>
             </div>
           </header>
 
-          {aba === "estatisticas" ? (
+          {/* ─ Estatísticas ─ */}
+          {aba === "estatisticas" && (
             <section style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12 }}>
-              <Card>
-                <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Total agendamentos</div>
-                <div style={{ fontSize: 28, fontWeight: 800, marginTop: 6 }}>{metrics.total}</div>
-              </Card>
-              <Card variante="destaque">
-                <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Ativos</div>
-                <div style={{ fontSize: 28, fontWeight: 800, marginTop: 6 }}>{metrics.ativos}</div>
-              </Card>
-              <Card>
-                <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Cancelados</div>
-                <div style={{ fontSize: 28, fontWeight: 800, marginTop: 6 }}>{metrics.cancelados}</div>
-              </Card>
-              <Card>
-                <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Concluídos</div>
-                <div style={{ fontSize: 28, fontWeight: 800, marginTop: 6 }}>{metrics.concluidos}</div>
-              </Card>
-
-              <Card variante="rosa">
-                <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Total de clientes</div>
-                <div style={{ fontSize: 28, fontWeight: 800, marginTop: 6 }}>{metrics.totalClientes}</div>
-              </Card>
-              <Card>
-                <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Dias com agendamentos</div>
-                <div style={{ fontSize: 28, fontWeight: 800, marginTop: 6 }}>{metrics.diasComAgendamentos}</div>
-              </Card>
-              <Card>
-                <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Faturamento</div>
-                <div style={{ fontSize: 24, fontWeight: 1000, marginTop: 6 }}>
-                  R$ {metrics.faturamento.toFixed(2).replace(".", ",")}
+              <StatCard label="Total agendamentos" value={metrics.total} icon="◷" />
+              <StatCard label="Ativos" value={metrics.ativos} color="var(--gold)" variant="gold" icon="●" />
+              <StatCard label="Concluídos" value={metrics.concluidos} color="var(--success)" variant="success" icon="✓" />
+              <StatCard label="Cancelados" value={metrics.cancelados} color="var(--danger)" icon="✕" />
+              <StatCard label="Clientes" value={metrics.totalClientes} color="var(--accent)" variant="accent" icon="◎" />
+              <StatCard label="Dias com agenda" value={metrics.diasComAgendamentos} icon="▦" />
+              <div style={{ gridColumn: "span 2", padding: "20px", borderRadius: "var(--radius-lg)", background: "var(--gold-soft)", border: "1px solid var(--gold-border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text-muted)", marginBottom: 6 }}>Faturamento total</div>
+                  <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: "-0.04em", color: "var(--gold)", lineHeight: 1 }}>
+                    R$ {metrics.faturamento.toFixed(2).replace(".", ",")}
+                  </div>
                 </div>
-              </Card>
-              <Card variante="rosa">
-                <div style={{ fontWeight: 1000, marginBottom: 6 }}>Resumo</div>
-                <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 14, lineHeight: 1.4 }}>
-                  Você tem {metrics.total} agendamentos com {metrics.ativos} ativos.
-                </div>
-              </Card>
+                <div style={{ fontSize: 40, opacity: 0.3 }}>◈</div>
+              </div>
             </section>
-          ) : null}
+          )}
 
-          {aba === "agendamentos" ? (
-            <section style={{ display: "grid", gap: 12 }}>
-              <Card>
-                <div style={{ fontWeight: 1000, marginBottom: 8 }}>Lista de agendamentos</div>
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                    <thead>
-                      <tr>
-                        {["Data", "Horário", "Cliente", "Serviço", "Status"].map((h) => (
-                          <th
-                            key={h}
-                            style={{
-                              textAlign: "left",
-                              fontSize: 12,
-                              color: "rgba(255,255,255,0.65)",
-                              fontWeight: 900,
-                              padding: "10px 8px",
-                              borderBottom: "1px solid rgba(255,255,255,0.08)",
-                            }}
-                          >
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {agendamentos.map((a) => (
-                        <tr key={a.id}>
-                          <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                            {formatarDataISOParaPT(a.data)}
-                          </td>
-                          <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{a.horario.slice(0, 5)}</td>
-                          <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{a.cliente}</td>
-                          <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{a.servico}</td>
-                          <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                            <span style={{ padding: "6px 10px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.03)", fontWeight: 900, fontSize: 12 }}>
-                              {a.status}
-                            </span>
-                          </td>
-                        </tr>
+          {/* ─ Agendamentos ─ */}
+          {aba === "agendamentos" && (
+            <div style={{
+              borderRadius: "var(--radius-lg)", background: "var(--bg-card)",
+              border: "1px solid var(--border-default)", overflow: "hidden",
+            }}>
+              <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)" }}>
+                <h2 style={{ fontSize: 15, fontWeight: 700, letterSpacing: "-0.01em" }}>Lista de agendamentos</h2>
+              </div>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      {["Data", "Horário", "Cliente", "Serviço", "Status"].map((h) => (
+                        <th key={h} style={TABLE_TH}>{h}</th>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
-            </section>
-          ) : null}
-
-          {aba === "clientes" ? (
-            <section style={{ display: "grid", gap: 12 }}>
-              <Card>
-                <div style={{ fontWeight: 1000, marginBottom: 8 }}>Lista de clientes</div>
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                    <thead>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {agendamentos.length === 0 ? (
                       <tr>
-                        {["Nome", "Telefone", "Email"].map((h) => (
-                          <th
-                            key={h}
-                            style={{
-                              textAlign: "left",
-                              fontSize: 12,
-                              color: "rgba(255,255,255,0.65)",
-                              fontWeight: 900,
-                              padding: "10px 8px",
-                              borderBottom: "1px solid rgba(255,255,255,0.08)",
-                            }}
-                          >
-                            {h}
-                          </th>
-                        ))}
+                        <td colSpan={5} style={{ ...TABLE_TD, textAlign: "center", color: "var(--text-muted)", padding: "40px" }}>
+                          Nenhum agendamento encontrado
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {clientes.map((c) => (
-                        <tr key={c.id}>
-                          <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{c.nome}</td>
-                          <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{c.telefone}</td>
-                          <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{c.email}</td>
-                        </tr>
+                    ) : agendamentos.map((a) => (
+                      <tr key={a.id || a.$id}
+                        style={{ transition: "background var(--duration-fast)" }}
+                        onMouseEnter={e => e.currentTarget.style.background = "var(--bg-elevated)"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                      >
+                        <td style={TABLE_TD}>{formatarDataISOParaPT(a.data)}</td>
+                        <td style={{ ...TABLE_TD, fontWeight: 600 }}>{a.horario.slice(0, 5)}</td>
+                        <td style={TABLE_TD}>{a.cliente}</td>
+                        <td style={{ ...TABLE_TD, color: "var(--text-secondary)" }}>{a.servico}</td>
+                        <td style={TABLE_TD}><StatusBadge status={a.status} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ─ Clientes ─ */}
+          {aba === "clientes" && (
+            <div style={{
+              borderRadius: "var(--radius-lg)", background: "var(--bg-card)",
+              border: "1px solid var(--border-default)", overflow: "hidden",
+            }}>
+              <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <h2 style={{ fontSize: 15, fontWeight: 700, letterSpacing: "-0.01em" }}>Lista de clientes</h2>
+                <span style={{ fontSize: 12, color: "var(--text-muted)", background: "var(--bg-elevated)", padding: "4px 10px", borderRadius: "var(--radius-full)", border: "1px solid var(--border-subtle)" }}>
+                  {clientes.length} clientes
+                </span>
+              </div>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      {["Nome", "Telefone", "E-mail"].map((h) => (
+                        <th key={h} style={TABLE_TH}>{h}</th>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
-            </section>
-          ) : null}
-
-          {aba === "servicos" ? (
-            <section style={{ display: "grid", gap: 12 }}>
-              <Card>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
-                  <div style={{ fontWeight: 1000, marginBottom: 0 }}>Lista de serviços</div>
-                  <Botao
-                    onClick={() => setModalServico({ aberto: true, servico: null })}
-                    style={{ padding: "8px 12px", fontSize: 13 }}
-                  >
-                    + Adicionar Serviço
-                  </Botao>
-                </div>
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                    <thead>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {clientes.length === 0 ? (
                       <tr>
-                        {["Serviço", "Duração", "Preço", "Ações"].map((h) => (
-                          <th
-                            key={h}
-                            style={{
-                              textAlign: "left",
-                              fontSize: 12,
-                              color: "rgba(255,255,255,0.65)",
-                              fontWeight: 900,
-                              padding: "10px 8px",
-                              borderBottom: "1px solid rgba(255,255,255,0.08)",
-                            }}
-                          >
-                            {h}
-                          </th>
-                        ))}
+                        <td colSpan={3} style={{ ...TABLE_TD, textAlign: "center", color: "var(--text-muted)", padding: "40px" }}>
+                          Nenhum cliente encontrado
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {servicosState.map((s) => (
-                        <tr key={s.$id}>
-                          <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{s.nome}</td>
-                          <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{s.duracaoMin} min</td>
-                          <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                            R$ {s.preco}
-                          </td>
-                          <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                    ) : clientes.map((c) => (
+                      <tr key={c.id || c.$id}
+                        onMouseEnter={e => e.currentTarget.style.background = "var(--bg-elevated)"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                        style={{ transition: "background var(--duration-fast)" }}
+                      >
+                        <td style={{ ...TABLE_TD, fontWeight: 600 }}>{c.nome}</td>
+                        <td style={{ ...TABLE_TD, color: "var(--text-secondary)" }}>{c.telefone}</td>
+                        <td style={{ ...TABLE_TD, color: "var(--text-muted)" }}>{c.email}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ─ Serviços ─ */}
+          {aba === "servicos" && (
+            <div style={{
+              borderRadius: "var(--radius-lg)", background: "var(--bg-card)",
+              border: "1px solid var(--border-default)", overflow: "hidden",
+            }}>
+              <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <h2 style={{ fontSize: 15, fontWeight: 700, letterSpacing: "-0.01em" }}>Lista de serviços</h2>
+                <Botao onClick={() => setModalServico({ aberto: true, servico: null })} style={{ padding: "8px 14px", fontSize: 13 }}>
+                  + Novo serviço
+                </Botao>
+              </div>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      {["Serviço", "Duração", "Preço", "Ações"].map((h) => (
+                        <th key={h} style={TABLE_TH}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {servicosState.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} style={{ ...TABLE_TD, textAlign: "center", color: "var(--text-muted)", padding: "40px" }}>
+                          Nenhum serviço cadastrado
+                        </td>
+                      </tr>
+                    ) : servicosState.map((s) => (
+                      <tr key={s.$id}
+                        onMouseEnter={e => e.currentTarget.style.background = "var(--bg-elevated)"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                        style={{ transition: "background var(--duration-fast)" }}
+                      >
+                        <td style={{ ...TABLE_TD, fontWeight: 600 }}>{s.nome}</td>
+                        <td style={{ ...TABLE_TD, color: "var(--text-secondary)" }}>{s.duracaoMin} min</td>
+                        <td style={{ ...TABLE_TD, fontWeight: 700, color: "var(--gold)" }}>R$ {s.preco}</td>
+                        <td style={TABLE_TD}>
+                          <div style={{ display: "flex", gap: 8 }}>
                             <button
                               onClick={() => setModalServico({ aberto: true, servico: s })}
                               style={{
-                                padding: "6px 10px",
-                                borderRadius: 8,
-                                border: "1px solid rgba(253,166,60,0.35)",
-                                background: "rgba(253,166,60,0.08)",
-                                color: "rgba(253,166,60,1)",
-                                cursor: "pointer",
-                                fontWeight: 900,
-                                fontSize: 12,
-                                marginRight: 6,
+                                padding: "6px 12px", borderRadius: "var(--radius-xs)",
+                                border: "1px solid var(--gold-border)", background: "var(--gold-soft)",
+                                color: "var(--gold)", cursor: "pointer", fontWeight: 600, fontSize: 12,
+                                fontFamily: "inherit", transition: "all var(--duration-fast) var(--ease-out)",
                               }}
+                              onMouseEnter={e => e.currentTarget.style.background = "rgba(212,168,67,0.15)"}
+                              onMouseLeave={e => e.currentTarget.style.background = "var(--gold-soft)"}
                             >
                               Editar
                             </button>
                             <button
                               onClick={() => deletarServico(s.$id)}
                               style={{
-                                padding: "6px 10px",
-                                borderRadius: 8,
-                                border: "1px solid rgba(255,100,100,0.35)",
-                                background: "rgba(255,100,100,0.08)",
-                                color: "rgba(255,100,100,1)",
-                                cursor: "pointer",
-                                fontWeight: 900,
-                                fontSize: 12,
+                                padding: "6px 12px", borderRadius: "var(--radius-xs)",
+                                border: "1px solid var(--danger-border)", background: "var(--danger-soft)",
+                                color: "var(--danger)", cursor: "pointer", fontWeight: 600, fontSize: 12,
+                                fontFamily: "inherit", transition: "all var(--duration-fast) var(--ease-out)",
                               }}
+                              onMouseEnter={e => e.currentTarget.style.background = "rgba(239,68,68,0.15)"}
+                              onMouseLeave={e => e.currentTarget.style.background = "var(--danger-soft)"}
                             >
-                              Deletar
+                              Excluir
                             </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
-            </section>
-          ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
-          {aba === "calendario" ? (
-            <section style={{ display: "grid", gap: 12 }}>
-              <Card>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                  <div>
-                    <div style={{ fontWeight: 1000, fontSize: 16 }}>Calendário de agendamentos</div>
-                    <div style={{ marginTop: 6, fontSize: 13, color: "rgba(255,255,255,0.75)" }}>
-                      Dias com agendamento recebem borda dourada. Clique para ver detalhes.
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ marginTop: 14 }}>
-                  <Calendario
-                    agendamentos={agendamentos}
-                    onSelecionarDia={(dataISO) => setModalDia({ aberto: true, data: dataISO })}
-                  />
-                </div>
-              </Card>
-            </section>
-          ) : null}
+          {/* ─ Calendário ─ */}
+          {aba === "calendario" && (
+            <div style={{
+              borderRadius: "var(--radius-lg)", background: "var(--bg-card)",
+              border: "1px solid var(--border-default)", padding: "24px",
+            }}>
+              <div style={{ marginBottom: 20 }}>
+                <h2 style={{ fontSize: 15, fontWeight: 700, letterSpacing: "-0.01em", marginBottom: 5 }}>Calendário</h2>
+                <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
+                  Dias marcados em dourado possuem agendamentos. Clique para ver detalhes.
+                </p>
+              </div>
+              <Calendario
+                agendamentos={agendamentos}
+                onSelecionarDia={(dataISO) => setModalDia({ aberto: true, data: dataISO })}
+              />
+            </div>
+          )}
         </main>
       </div>
 
+      {/* Modals */}
       <Modal
         aberto={modalServico.aberto}
-        titulo={modalServico.servico ? "Editar serviço" : "Adicionar serviço"}
+        titulo={modalServico.servico ? "Editar serviço" : "Novo serviço"}
         onFechar={() => setModalServico({ aberto: false, servico: null })}
       >
         <FormServicoModal
@@ -976,55 +848,31 @@ export default function Dashboard() {
 
       <Modal
         aberto={modalDia.aberto}
-        titulo={modalDia.data ? `Agendamentos • ${formatarDataISOParaPT(modalDia.data)}` : "Agendamentos"}
+        titulo={modalDia.data ? `Agendamentos · ${formatarDataISOParaPT(modalDia.data)}` : "Agendamentos"}
         onFechar={() => setModalDia({ aberto: false, data: null })}
       >
         {agendamentosDoDia.length === 0 ? (
-          <div style={{ color: "rgba(255,255,255,0.80)", fontSize: 14 }}>
+          <div style={{ color: "var(--text-muted)", fontSize: 14, textAlign: "center", padding: "20px 0" }}>
             Nenhum agendamento para este dia.
           </div>
         ) : (
           <div style={{ display: "grid", gap: 10 }}>
             {agendamentosDoDia.map((a) => (
-              <div
-                key={a.id}
-                style={{
-                  padding: 14,
-                  borderRadius: 16,
-                  border: "1px solid rgba(255,255,255,0.10)",
-                  background: "rgba(255,255,255,0.03)",
-                  display: "grid",
-                  gridTemplateColumns: "120px 1fr",
-                  gap: 12,
-                  alignItems: "start",
-                }}
-              >
+              <div key={a.id || a.$id} style={{
+                padding: "16px", borderRadius: "var(--radius-md)",
+                border: "1px solid var(--border-default)", background: "var(--bg-elevated)",
+                display: "grid", gridTemplateColumns: "100px 1fr", gap: 14, alignItems: "start",
+              }}>
                 <div>
-                  <div style={{ fontWeight: 1000, fontSize: 13, color: "rgba(255,255,255,0.65)" }}>Horário</div>
-                  <div style={{ fontWeight: 1000, fontSize: 16, marginTop: 6 }}>
-                    {a.horario.slice(0, 5)}
-                  </div>
+                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", marginBottom: 6 }}>Horário</div>
+                  <div style={{ fontWeight: 800, fontSize: 20, letterSpacing: "-0.02em", color: "var(--accent)" }}>{a.horario.slice(0, 5)}</div>
                 </div>
-
                 <div>
-                  <div style={{ fontWeight: 1000 }}>{a.cliente}</div>
-                  <div style={{ marginTop: 6, color: "rgba(255,255,255,0.85)", fontSize: 14 }}>
-                    {a.servico} • {a.duracaoMin} min
+                  <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{a.cliente}</div>
+                  <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 10 }}>
+                    {a.servico} · {a.duracaoMin} min
                   </div>
-                  <div style={{ marginTop: 10 }}>
-                    <span
-                      style={{
-                        padding: "6px 10px",
-                        borderRadius: 999,
-                        border: "1px solid rgba(255,255,255,0.10)",
-                        background: "rgba(255,255,255,0.03)",
-                        fontWeight: 900,
-                        fontSize: 12,
-                      }}
-                    >
-                      {a.status}
-                    </span>
-                  </div>
+                  <StatusBadge status={a.status} />
                 </div>
               </div>
             ))}

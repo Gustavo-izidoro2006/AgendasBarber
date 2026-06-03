@@ -4,10 +4,10 @@ import { useBarbearia } from "../contextos/BarbeariaContexto";
 import { useSessaoBarbearia } from "../contextos/SessaoBarbeariaContexto";
 
 const NAV_ITEMS = [
-  { key: "dashboard", label: "Visão Geral", emoji: "📊", path: "" },
-  { key: "agendamentos", label: "Agendamentos", emoji: "📅", path: "agendamentos" },
-  { key: "servicos", label: "Serviços", emoji: "✂️", path: "servicos" },
-  { key: "configuracoes", label: "Configurações", emoji: "⚙️", path: "configuracoes" },
+  { key: "dashboard", label: "Visão Geral", icon: "◈", path: "" },
+  { key: "agendamentos", label: "Agendamentos", icon: "◷", path: "agendamentos" },
+  { key: "servicos", label: "Serviços", icon: "✂", path: "servicos" },
+  { key: "configuracoes", label: "Configurações", icon: "⚙", path: "configuracoes" },
 ];
 
 export default function Sidebar({ aberta, onToggle }) {
@@ -53,109 +53,153 @@ export default function Sidebar({ aberta, onToggle }) {
     if (onToggle) onToggle();
   }
 
-  return (
-    <>
-      {/* Overlay mobile */}
-      {aberta && (
-        <div onClick={onToggle} style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 998, display: "block",
-          backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)",
-        }} />
-      )}
+  const sidebarContent = (
+    <div style={{
+      width: 240, height: "100vh",
+      background: "rgba(8,8,9,0.98)",
+      border: "1px solid var(--border-default)",
+      display: "flex", flexDirection: "column",
+      backdropFilter: "blur(20px)",
+      overflow: "hidden",
+    }}>
+      {/* Top accent bar */}
+      <div style={{ height: 3, background: "linear-gradient(90deg, var(--accent), var(--gold))", flexShrink: 0 }} />
 
-      <aside style={{
-        position: "fixed", top: 0, left: aberta ? 0 : -260, width: 260, height: "100vh",
-        background: "rgba(8,8,10,0.95)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
-        borderRight: "1px solid var(--border-default)", zIndex: 999,
-        display: "flex", flexDirection: "column", transition: "left 0.25s var(--ease-out)", overflowY: "auto",
+      {/* Brand */}
+      <div style={{
+        padding: "20px 18px 18px",
+        borderBottom: "1px solid var(--border-subtle)",
+        flexShrink: 0,
       }}>
-        {/* Header */}
-        <div style={{ padding: "20px 20px 16px", borderBottom: "1px solid var(--border-subtle)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: "var(--radius-sm)",
-              background: "var(--accent-soft)", border: "1px solid var(--accent-border)",
-              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
-            }}>✂️</div>
-            <div style={{ overflow: "hidden" }}>
-              <div style={{
-                color: "var(--text-primary)", fontWeight: 700, fontSize: 15,
-                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-              }}>{barbearia?.nomear || "Barbearia"}</div>
-              <div style={{ color: "var(--text-muted)", fontSize: 11, fontWeight: 500 }}>AgendasBarber</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+          <div style={{
+            width: 38, height: 38, borderRadius: "var(--radius-sm)",
+            background: "linear-gradient(135deg, var(--accent), #c9213f)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 16, boxShadow: "0 2px 10px rgba(232,40,74,0.35)",
+            flexShrink: 0,
+          }}>✂</div>
+          <div style={{ overflow: "hidden" }}>
+            <div style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em" }}>
+              Barbearia
+            </div>
+            <div style={{ fontWeight: 800, fontSize: 14, letterSpacing: "-0.01em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {barbearia?.nome || barbearia?.nomeBarbearia || "—"}
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Link público */}
-        {slug && (
-          <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border-subtle)" }}>
-            <div style={{
-              color: "var(--text-muted)", fontSize: 10, marginBottom: 6, fontWeight: 700,
-              letterSpacing: "0.08em", textTransform: "uppercase",
-            }}>Link público</div>
-            <div style={{
-              display: "flex", alignItems: "center", gap: 6,
-              background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-subtle)",
-              borderRadius: "var(--radius-sm)", padding: "6px 10px",
-            }}>
-              <span style={{
-                color: "var(--text-secondary)", fontSize: 12, flex: 1,
-                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-              }}>{slug}</span>
-              <button onClick={copiarLink} style={{
-                padding: "4px 10px", borderRadius: "var(--radius-sm)", border: "none",
-                background: copiado ? "var(--success-soft)" : "var(--accent-soft)",
-                color: copiado ? "var(--success)" : "var(--accent)",
-                fontSize: 11, fontWeight: 700, cursor: "pointer",
-                transition: "all var(--duration-fast) var(--ease-out)", flexShrink: 0,
-              }}>
-                {copiado ? "✓ Copiado" : "Copiar"}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Navegação */}
-        <nav style={{ flex: 1, padding: "12px 12px" }}>
-          {NAV_ITEMS.map(item => {
-            const isActive = activeKey === item.key;
+      {/* Nav */}
+      <nav style={{ flex: 1, padding: "12px 10px", overflowY: "auto" }}>
+        <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 8, paddingLeft: 8 }}>
+          Menu
+        </div>
+        <div style={{ display: "grid", gap: 2 }}>
+          {NAV_ITEMS.map((item) => {
+            const active = activeKey === item.key;
             return (
-              <button key={item.key} onClick={() => irPara(item.path)} style={{
-                width: "100%", display: "flex", alignItems: "center", gap: 10,
-                padding: "10px 12px", borderRadius: "var(--radius-sm)", border: "none",
-                background: isActive ? "var(--accent-soft)" : "transparent",
-                color: isActive ? "var(--accent)" : "var(--text-secondary)",
-                fontSize: 14, fontWeight: isActive ? 700 : 500,
-                cursor: "pointer", transition: "all var(--duration-fast) var(--ease-out)",
-                textAlign: "left", marginBottom: 2,
-              }}
-              onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.color = "var(--text-primary)"; } }}
-              onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; } }}
+              <button
+                key={item.key}
+                onClick={() => irPara(item.path)}
+                style={{
+                  width: "100%", textAlign: "left",
+                  padding: "10px 12px", borderRadius: "var(--radius-sm)",
+                  border: `1px solid ${active ? "var(--accent-border)" : "transparent"}`,
+                  background: active ? "var(--accent-soft)" : "transparent",
+                  color: active ? "var(--accent)" : "var(--text-secondary)",
+                  cursor: "pointer", fontWeight: active ? 700 : 500,
+                  fontSize: 14, transition: "all var(--duration-fast) var(--ease-out)",
+                  display: "flex", alignItems: "center", gap: 10, fontFamily: "inherit",
+                }}
+                onMouseEnter={e => { if (!active) { e.currentTarget.style.background = "var(--bg-elevated)"; e.currentTarget.style.color = "var(--text-primary)"; } }}
+                onMouseLeave={e => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; } }}
               >
-                <span style={{ fontSize: 16 }}>{item.emoji}</span>
+                <span style={{ fontSize: 13, width: 16, textAlign: "center", opacity: active ? 1 : 0.55 }}>
+                  {item.icon}
+                </span>
                 {item.label}
+                {active && (
+                  <div style={{
+                    marginLeft: "auto", width: 6, height: 6, borderRadius: "50%",
+                    background: "var(--accent)",
+                  }} />
+                )}
               </button>
             );
           })}
-        </nav>
-
-        {/* Footer */}
-        <div style={{ padding: "14px 20px", borderTop: "1px solid var(--border-subtle)" }}>
-          <button onClick={sair} style={{
-            width: "100%", display: "flex", alignItems: "center", gap: 10,
-            padding: "10px 12px", borderRadius: "var(--radius-sm)",
-            border: "1px solid rgba(253,54,110,0.15)", background: "transparent",
-            color: "var(--accent)", fontSize: 14, fontWeight: 600,
-            cursor: "pointer", transition: "all var(--duration-fast) var(--ease-out)",
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = "var(--accent-soft)"; }}
-          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
-          >
-            🚪 Sair
-          </button>
         </div>
+      </nav>
+
+      {/* Bottom */}
+      <div style={{
+        padding: "14px 10px 18px",
+        borderTop: "1px solid var(--border-subtle)",
+        flexShrink: 0,
+        display: "grid", gap: 8,
+      }}>
+        {/* Copy link */}
+        <button onClick={copiarLink} style={{
+          width: "100%", padding: "10px 12px",
+          borderRadius: "var(--radius-sm)",
+          border: copiado ? "1px solid var(--success-border)" : "1px solid var(--gold-border)",
+          background: copiado ? "var(--success-soft)" : "var(--gold-soft)",
+          color: copiado ? "var(--success)" : "var(--gold)",
+          cursor: "pointer", fontWeight: 600, fontSize: 13,
+          fontFamily: "inherit", transition: "all var(--duration-fast) var(--ease-out)",
+          display: "flex", alignItems: "center", gap: 8,
+        }}>
+          <span>{copiado ? "✓" : "◎"}</span>
+          {copiado ? "Link copiado!" : "Copiar link público"}
+        </button>
+
+        {/* Logout */}
+        <button onClick={sair} style={{
+          width: "100%", padding: "10px 12px",
+          borderRadius: "var(--radius-sm)",
+          border: "1px solid var(--border-default)",
+          background: "transparent", color: "var(--text-muted)",
+          cursor: "pointer", fontWeight: 600, fontSize: 13,
+          fontFamily: "inherit", transition: "all var(--duration-fast) var(--ease-out)",
+          display: "flex", alignItems: "center", gap: 8,
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = "var(--danger-soft)"; e.currentTarget.style.color = "var(--danger)"; e.currentTarget.style.borderColor = "var(--danger-border)"; }}
+        onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.borderColor = "var(--border-default)"; }}
+        >
+          <span>→</span> Sair da conta
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Mobile overlay */}
+      {aberta && (
+        <div onClick={onToggle} style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
+          zIndex: 99, backdropFilter: "blur(4px)",
+          animation: "fadeIn 0.2s ease",
+        }} />
+      )}
+
+      {/* Desktop sidebar */}
+      <aside style={{
+        position: "sticky", top: 0, height: "100vh",
+        display: "flex", flexDirection: "column",
+      }}>
+        {sidebarContent}
       </aside>
+
+      {/* Mobile drawer */}
+      {aberta && (
+        <div style={{
+          position: "fixed", left: 0, top: 0, bottom: 0,
+          zIndex: 100, animation: "fadeSlideUp 0.25s var(--ease-out)",
+        }}>
+          {sidebarContent}
+        </div>
+      )}
     </>
   );
 }
