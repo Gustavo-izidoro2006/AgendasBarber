@@ -63,28 +63,17 @@ async function upsertById(key, documentId, payload) {
   if (!DB_ID) throw new Error("VITE_APPWRITE_DATABASE_ID não configurado");
   const collId = getCollectionId(key);
 
-  // Estratégia correta para evitar 409->404:
-  // 1) Tenta criar sempre com o documentId determinístico.
-  // 2) Se der 409 (já existe), tenta buscar O MESMO ID pelo getDocument.
-  // 3) Atualiza usando o $id retornado (garante consistência).
+  // Upsert real usando o mesmo $id:
+  // - tenta createDocument
+  // - se já existir (409), faz updateDocument no MESMO documentId
+  // Isso elimina completamente o risco de 409→404 por divergência entre IDs.
   try {
     return await databases.createDocument(DB_ID, collId, documentId, payload);
   } catch (e) {
     if (!(e?.code === 409 || e?.status === 409)) throw e;
 
-    // Já existe para o mesmo documentId → busca pelo $id determinístico
-    try {
-      const doc = await databases.getDocument(DB_ID, collId, documentId);
-      return await databases.updateDocument(DB_ID, collId, doc.$id, payload);
-    } catch (getErr) {
-      // Se por algum motivo não existir exatamente nesse ID (ex: dados antigos/ID divergente),
-      // cai no fallback por constraints únicas (lista+filtro) e atualiza o que achar.
-      const existingDoc = await _findExistingDoc(key, payload, collId);
-      if (existingDoc?.$id) {
-        return await databases.updateDocument(DB_ID, collId, existingDoc.$id, payload);
-      }
-      throw getErr;
-    }
+    // Já existe: atualiza no mesmo ID
+    return await databases.updateDocument(DB_ID, collId, documentId, payload);
   }
 }
 
