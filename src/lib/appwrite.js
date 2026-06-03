@@ -95,28 +95,34 @@ async function upsertById(key, documentId, payload) {
 async function _findExistingDoc(key, payload, collId) {
   try {
     // Busca genérica — filtra no cliente
-    const res = await databases.listDocuments(DB_ID, collId, [Query.limit(200)]);
+    // Observação: Relationship pode vir como string ou objeto {$id} dependendo do nível de permissões/expansão.
+    const res = await databases.listDocuments(DB_ID, collId, [Query.limit(500)]);
     const docs = res?.documents ?? [];
     const bid = payload.barbearia_id;
 
-    return docs.find(d => {
-      // Toda collection tem barbearia_id (relationship)
-      const dBarbId = d.barbearia_id?.$id || d.barbearia_id;
-      if (dBarbId !== bid) return false;
+    const normalizeId = v => {
+      if (!v) return v;
+      return typeof v === "object" ? v.$id : v;
+    };
 
-      // Constraint única por collection
+    return docs.find(d => {
+      const dBarbId = normalizeId(d.barbearia_id);
+      if (!bid || dBarbId !== bid) return false;
+
       if (key === "configuracoes") {
-        // configuracoes: unique(barbearia_id) — só basta o match acima
+        // configuracoes: unique(barbearia_id)
+        // (não depende de mais nada além do relacionamento)
         return true;
       }
+
       if (key === "horarios") {
-        // horarios: unique(barbearia_id, dia_semana)
         return d.dia_semana === payload.dia_semana;
       }
+
       if (key === "servicos") {
-        // servicos: unique(barbearia_id, nome)
         return d.nome === payload.nome;
       }
+
       return true;
     }) ?? null;
   } catch {
