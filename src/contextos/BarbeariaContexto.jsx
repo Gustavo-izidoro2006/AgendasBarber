@@ -27,18 +27,13 @@ export function BarbeariaProvider({ children }) {
         return;
       }
 
-      // Busca todas as barbearias e filtra client-side
-      // (user_id é Relationship — Query.equal não funciona para relationship fields)
+      // user_id é campo STRING indexado (não Relationship) — Query.equal funciona
       const resp = await databases.listDocuments(DB_ID, COLLECTIONS.barbearias, [
-        Query.limit(500),
+        Query.equal("user_id", usuario.$id),
+        Query.limit(1),
       ]);
 
-      const found = resp?.documents?.find(d => {
-        const dUserId = typeof d.user_id === "string" ? d.user_id : d.user_id?.$id;
-        return dUserId === usuario.$id;
-      }) ?? null;
-
-      setBarbearia(found);
+      setBarbearia(resp?.documents?.[0] ?? null);
     } catch (e) {
       console.error("BarbeariaContexto erro:", e);
       setErro(e);

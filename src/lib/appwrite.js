@@ -74,18 +74,28 @@ async function upsertByQuery(key, queries, payload) {
 }
 
 /**
- * Upsert por ID conhecido.
- * Só use quando o documentId realmente precisa ser fixo.
+ * Upsert nativo do Appwrite SDK 21.x (PUT /documents/:id).
+ * Cria se não existe, atualiza se existe. Verdadeiramente idempotente.
+ * REF: https://appwrite.io/docs/references/cloud/client-web/databases#upsertDocument
  */
 async function upsertById(key, documentId, payload) {
   if (!DB_ID) throw new Error("VITE_APPWRITE_DATABASE_ID não configurado");
   const collId = getCollectionId(key);
 
+  // databases.upsertDocument usa PUT — cria se não existe, substitui se existe
+  // Disponível no SDK appwrite@16+ via método direto
+  if (typeof databases.upsertDocument === "function") {
+    return databases.upsertDocument(DB_ID, collId, documentId, payload);
+  }
+
+  // Fallback para SDKs que não têm upsertDocument nativo
   try {
     return await databases.createDocument(DB_ID, collId, documentId, payload);
   } catch (e) {
-    if (!(e?.code === 409 || e?.status === 409)) throw e;
-    return await databases.updateDocument(DB_ID, collId, documentId, payload);
+    if (e?.code === 409 || e?.status === 409) {
+      return databases.updateDocument(DB_ID, collId, documentId, payload);
+    }
+    throw e;
   }
 }
 

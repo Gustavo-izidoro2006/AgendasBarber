@@ -49,14 +49,12 @@ export function SessaoBarbeariaProvider({ children }) {
       const user = await carregarSessao();
       if (!user) throw new Error("Sessão não encontrada após login.");
 
-      // Busca barbearia client-side (user_id é Relationship)
+      // user_id é STRING indexado — Query.equal funciona diretamente
       const respBarb = await databases.listDocuments(DB_ID, COLLECTIONS.barbearias, [
-        Query.limit(500),
+        Query.equal("user_id", user.$id),
+        Query.limit(1),
       ]);
-      const barb = respBarb?.documents?.find(d => {
-        const dUserId = typeof d.user_id === "string" ? d.user_id : d.user_id?.$id;
-        return dUserId === user.$id;
-      }) ?? null;
+      const barb = respBarb?.documents?.[0] ?? null;
 
       if (!barb?.$id) {
         navigate("/onboarding");

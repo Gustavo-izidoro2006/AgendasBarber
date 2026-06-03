@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSessaoBarbearia } from "../contextos/SessaoBarbeariaContexto";
 import { useBarbearia } from "../contextos/BarbeariaContexto";
-import { databases, COLLECTIONS, DB_ID, Query, ID } from "../lib/appwrite";
+import { databases, COLLECTIONS, DB_ID, Query, ID, upsertById } from "../lib/appwrite";
 
 function Progresso({ etapaAtual, total }) {
   const percent = Math.round((etapaAtual / total) * 100);
@@ -137,6 +137,7 @@ export default function Onboarding() {
       let barbeariaDoc = barbearia?.$id ? barbearia : null;
 
       if (!barbeariaDoc?.$id) {
+        // Busca client-side (user_id é Relationship — Query.equal não funciona)
         const resp = await databases.listDocuments(DB_ID, COLLECTIONS.barbearias, [
           Query.equal("user_id", user.$id),
           Query.limit(1),
@@ -168,25 +169,13 @@ export default function Onboarding() {
       const slug = barbeariaDoc.slug;
       if (!barbeariaId || !slug) throw new Error("Dados da barbearia não resolvidos.");
 
-      // 2) Configurações – busca client-side e upsert
-      const allConfigs = await databases.listDocuments(DB_ID, COLLECTIONS.configuracoes, [
-        Query.limit(500),
-      ]);
-      const existingConfig = allConfigs.documents.find(c => {
-        const cBarbId = typeof c.barbearia_id === "string" ? c.barbearia_id : c.barbearia_id?.$id;
-        return cBarbId === barbeariaId;
-      }) ?? null;
-      const configData = {
+      // 2) Configurações – upsert por ID = barbeariaId (1-1, idempotente)
+      await upsertById("configuracoes", barbeariaId, {
         barbearia_id: barbeariaId,
         onboarding_completo: false,
         intervalo_agendamento: 30,
         antecedencia_minima: 1,
-      };
-      if (existingConfig) {
-        await databases.updateDocument(DB_ID, COLLECTIONS.configuracoes, existingConfig.$id, configData);
-      } else {
-        await databases.createDocument(DB_ID, COLLECTIONS.configuracoes, ID.unique(), configData);
-      }
+      });
 
       const mapDias = { dom: 0, seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, sab: 6 };
       const abertura = horarios?.inicio || "08:00";
@@ -196,20 +185,12 @@ export default function Onboarding() {
         .filter(([k, v]) => typeof v === "boolean" && v)
         .map(([k]) => k);
 
-      // 3) Horários – busca todos e filtra client-side (Relationship não é indexado)
-      const allHorarios = await databases.listDocuments(DB_ID, COLLECTIONS.horarios, [
-        Query.limit(500),
-      ]);
-      const meusHorarios = allHorarios.documents.filter(h => {
-        const hBarbId = typeof h.barbearia_id === "string" ? h.barbearia_id : h.barbearia_id?.$id;
-        return hBarbId === barbeariaId;
-      });
-
+      // 3) Horários – ID determinístico por barbearia + dia (evita colisão)
       for (const ch of diasSel) {
         const dia_semana = mapDias[ch];
         if (dia_semana === undefined) continue;
 
-        const existingHor = meusHorarios.find(h => h.dia_semana === dia_semana) ?? null;
+        const horId = `hor_${barbeariaId}_${dia_semana}`;
         const dataHorario = {
           barbearia_id: barbeariaId,
           dia_semana,
@@ -217,22 +198,10 @@ export default function Onboarding() {
           fechamento,
           ativo: "true",
         };
-        if (existingHor) {
-          await databases.updateDocument(DB_ID, COLLECTIONS.horarios, existingHor.$id, dataHorario);
-        } else {
-          await databases.createDocument(DB_ID, COLLECTIONS.horarios, ID.unique(), dataHorario);
-        }
+        await upsertById("horarios", horId, dataHorario);
       }
 
-      // 4) Serviços – busca todos e filtra client-side (Relationship não é indexado)
-      const allServicos = await databases.listDocuments(DB_ID, COLLECTIONS.servicos, [
-        Query.limit(500),
-      ]);
-      const meusServicos = allServicos.documents.filter(s => {
-        const sBarbId = typeof s.barbearia_id === "string" ? s.barbearia_id : s.barbearia_id?.$id;
-        return sBarbId === barbeariaId;
-      });
-
+      // 4) Serviços – ID determinístico por barbearia + nome sanitizado
       for (const srv of servicos) {
         const nome = srv.nome?.trim();
         if (!nome) continue;
@@ -241,7 +210,8 @@ export default function Onboarding() {
         const valorRaw = precos?.[srv.id];
         const valor = valorRaw != null && valorRaw !== "" ? String(valorRaw) : "0";
 
-        const existingServ = meusServicos.find(s => s.nome === nome) ?? null;
+        const nomeId = nome.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/(^_$|_$)/g, "");
+        const servId = `srv_${barbeariaId}_${nomeId}`;
         const dataServico = {
           barbearia_id: barbeariaId,
           nome,
@@ -251,29 +221,16 @@ export default function Onboarding() {
           status: "ativo",
           criado_em: new Date().toISOString(),
         };
-        if (existingServ) {
-          await databases.updateDocument(DB_ID, COLLECTIONS.servicos, existingServ.$id, dataServico);
-        } else {
-          await databases.createDocument(DB_ID, COLLECTIONS.servicos, ID.unique(), dataServico);
-        }
+        await upsertById("servicos", servId, dataServico);
       }
 
-      // 5) Marca onboarding como completo – busca client-side novamente
-      const allConfigs2 = await databases.listDocuments(DB_ID, COLLECTIONS.configuracoes, [
-        Query.limit(500),
-      ]);
-      const cfgFinal = allConfigs2.documents.find(c => {
-        const cBarbId = typeof c.barbearia_id === "string" ? c.barbearia_id : c.barbearia_id?.$id;
-        return cBarbId === barbeariaId;
-      }) ?? null;
-      if (cfgFinal) {
-        await databases.updateDocument(DB_ID, COLLECTIONS.configuracoes, cfgFinal.$id, {
-          barbearia_id: barbeariaId,
-          onboarding_completo: true,
-          intervalo_agendamento: 30,
-          antecedencia_minima: 1,
-        });
-      }
+      // 5) Marca onboarding como completo (mesmo ID = barbeariaId)
+      await upsertById("configuracoes", barbeariaId, {
+        barbearia_id: barbeariaId,
+        onboarding_completo: true,
+        intervalo_agendamento: 30,
+        antecedencia_minima: 1,
+      });
 
       setBarbearia(barbeariaDoc);
       navigate(`/dashboard/${slug}`, { replace: true });
