@@ -56,64 +56,71 @@ async function deleteDocument(key, documentId) {
 
 /**
  * Upsert seguro por $id conhecido.
- * Quando você já tem o $id do documento, use esta função para criar ou atualizar.
- * Tenta criar o documento primeiro, e se já existir (erro 409), atualiza.
- * Se der conflito de chave única/relacionamento (409), localiza o documento e atualiza.
+ * Estratégia: busca primeiro se o documento já existe (por constraints únicas),
+ * e então decide entre criar ou atualizar. Evita completamente o ciclo 409→404.
  */
 async function upsertById(key, documentId, payload) {
   if (!DB_ID) throw new Error("VITE_APPWRITE_DATABASE_ID não configurado");
+  const collId = getCollectionId(key);
+
+  // ── 1) Tenta buscar documento existente pelas constraints únicas ─────────
+  const existingDoc = await _findExistingDoc(key, payload, collId);
+  if (existingDoc?.$id) {
+    // Documento já existe → atualiza pelo ID real
+    return await databases.updateDocument(DB_ID, collId, existingDoc.$id, payload);
+  }
+
+  // ── 2) Não existe → tenta criar com o ID determinístico ──────────────────
   try {
-    return await databases.createDocument(DB_ID, getCollectionId(key), documentId, payload);
+    return await databases.createDocument(DB_ID, collId, documentId, payload);
   } catch (e) {
     if (e?.code === 409 || e?.status === 409) {
-      try {
-        // Tenta atualizar pelo ID fornecido caso ele seja o existente
-        return await databases.updateDocument(DB_ID, getCollectionId(key), documentId, payload);
-      } catch (updateErr) {
-        if (updateErr?.code === 404 || updateErr?.status === 404) {
-          // Conflito de 409 ocorreu por causa de uma restrição única/relacionamento em outro ID.
-          // Vamos buscar o documento existente para atualizá-lo.
-          const queries = [];
-          if (payload.barbearia_id) {
-            queries.push(Query.equal("barbearia_id", payload.barbearia_id));
-          }
-          if (key === "horarios" && payload.dia_semana !== undefined) {
-            queries.push(Query.equal("dia_semana", payload.dia_semana));
-          }
-          if (key === "servicos" && payload.nome) {
-            queries.push(Query.equal("nome", payload.nome));
-          }
-
-          let docs = [];
-          try {
-            const res = await databases.listDocuments(DB_ID, getCollectionId(key), queries);
-            docs = res?.documents ?? [];
-          } catch {
-            // Fallback: busca tudo e filtra no cliente (se falhar query de relação)
-            const resAll = await databases.listDocuments(DB_ID, getCollectionId(key), [Query.limit(100)]);
-            const bid = payload.barbearia_id;
-            docs = (resAll?.documents ?? []).filter(d => {
-              const matchesBarbearia = d.barbearia_id === bid || d.barbearia_id?.$id === bid;
-              if (!matchesBarbearia) return false;
-              if (key === "horarios") {
-                return d.dia_semana === payload.dia_semana;
-              }
-              if (key === "servicos") {
-                return d.nome === payload.nome;
-              }
-              return true;
-            });
-          }
-
-          if (docs.length > 0) {
-            const existingId = docs[0].$id;
-            return await databases.updateDocument(DB_ID, getCollectionId(key), existingId, payload);
-          }
-        }
-        throw updateErr;
+      // Race condition ou constraint não coberta na busca → busca de novo e atualiza
+      const doc = await _findExistingDoc(key, payload, collId);
+      if (doc?.$id) {
+        return await databases.updateDocument(DB_ID, collId, doc.$id, payload);
       }
+      // Último recurso: tenta atualizar pelo ID determinístico
+      return await databases.updateDocument(DB_ID, collId, documentId, payload);
     }
     throw e;
+  }
+}
+
+/**
+ * Busca documento existente pelas constraints únicas de cada collection.
+ * Usa listDocuments com filtro no cliente porque Query.equal com Relationship
+ * não é suportado diretamente pelo Appwrite.
+ */
+async function _findExistingDoc(key, payload, collId) {
+  try {
+    // Busca genérica — filtra no cliente
+    const res = await databases.listDocuments(DB_ID, collId, [Query.limit(200)]);
+    const docs = res?.documents ?? [];
+    const bid = payload.barbearia_id;
+
+    return docs.find(d => {
+      // Toda collection tem barbearia_id (relationship)
+      const dBarbId = d.barbearia_id?.$id || d.barbearia_id;
+      if (dBarbId !== bid) return false;
+
+      // Constraint única por collection
+      if (key === "configuracoes") {
+        // configuracoes: unique(barbearia_id) — só basta o match acima
+        return true;
+      }
+      if (key === "horarios") {
+        // horarios: unique(barbearia_id, dia_semana)
+        return d.dia_semana === payload.dia_semana;
+      }
+      if (key === "servicos") {
+        // servicos: unique(barbearia_id, nome)
+        return d.nome === payload.nome;
+      }
+      return true;
+    }) ?? null;
+  } catch {
+    return null;
   }
 }
 
