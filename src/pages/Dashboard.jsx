@@ -156,25 +156,22 @@ function Botao({
 function FormServicoModal({ servico, onSalvar, onCancelar }) {
   const [formData, setFormData] = useState({
     nome: "",
-    descricao: "",
-    valor: "",
-    duracao: "",
+    preco: "",
+    duracaoMin: "",
   });
 
   useEffect(() => {
     if (servico) {
       setFormData({
         nome: servico.nome || "",
-        descricao: servico.descricao || "",
-        valor: String(servico.valor || ""),
-        duracao: String(servico.duracao || ""),
+        preco: String(servico.preco || ""),
+        duracaoMin: String(servico.duracaoMin || ""),
       });
     } else {
       setFormData({
         nome: "",
-        descricao: "",
-        valor: "",
-        duracao: "",
+        preco: "",
+        duracaoMin: "",
       });
     }
   }, [servico]);
@@ -219,34 +216,12 @@ function FormServicoModal({ servico, onSalvar, onCancelar }) {
 
       <div>
         <label style={{ display: "block", marginBottom: 6, fontWeight: 800, fontSize: 13 }}>
-          Descrição
-        </label>
-        <input
-          type="text"
-          name="descricao"
-          value={formData.descricao}
-          onChange={handleChange}
-          style={{
-            width: "100%",
-            padding: "10px 12px",
-            borderRadius: 10,
-            border: "1px solid rgba(255,255,255,0.15)",
-            background: "rgba(255,255,255,0.05)",
-            color: "white",
-            fontWeight: 500,
-          }}
-          placeholder="Ex: Corte simples com máquina e tesoura"
-        />
-      </div>
-
-      <div>
-        <label style={{ display: "block", marginBottom: 6, fontWeight: 800, fontSize: 13 }}>
           Preço (R$) *
         </label>
         <input
           type="number"
-          name="valor"
-          value={formData.valor}
+          name="preco"
+          value={formData.preco}
           onChange={handleChange}
           required
           step="0.01"
@@ -270,8 +245,8 @@ function FormServicoModal({ servico, onSalvar, onCancelar }) {
         </label>
         <input
           type="number"
-          name="duracao"
-          value={formData.duracao}
+          name="duracaoMin"
+          value={formData.duracaoMin}
           onChange={handleChange}
           required
           min="1"
@@ -344,11 +319,7 @@ function Calendario({
 
   const diasComAgendamento = useMemo(() => {
     const set = new Set();
-    for (const a of agendamentos) {
-      if (a.data_agendamento) {
-        set.add(a.data_agendamento.substring(0, 10));
-      }
-    }
+    for (const a of agendamentos) set.add(a.data);
     return set;
   }, [agendamentos]);
 
@@ -554,21 +525,13 @@ export default function Dashboard() {
       if (!barbearia) return;
 
       try {
-        const payload = {
-          nome: dados.nome,
-          descricao: dados.descricao || " ",
-          valor: String(dados.valor),
-          duracao: String(dados.duracao),
-          status: "ativo",
-        };
-
         if (modalServico.servico?.$id) {
           // Editar
           await databases.updateDocument(
             DB_ID,
             COLLECTIONS.servicos,
             modalServico.servico.$id,
-            payload
+            dados
           );
         } else {
           // Criar novo
@@ -576,7 +539,7 @@ export default function Dashboard() {
             DB_ID,
             COLLECTIONS.servicos,
             ID.unique(),
-            { ...payload, barbearia_id: barbearia.$id }
+            { ...dados, barbearia_id: barbearia.$id }
           );
         }
 
@@ -634,7 +597,7 @@ export default function Dashboard() {
   const agendamentosDoDia = useMemo(() => {
     if (!modalDia.data) return [];
     return agendamentos
-      .filter((a) => a.data_agendamento && a.data_agendamento.substring(0, 10) === modalDia.data)
+      .filter((a) => a.data === modalDia.data)
       .sort((a, b) => (a.horario < b.horario ? -1 : 1));
   }, [agendamentos, modalDia.data]);
 
@@ -648,14 +611,10 @@ export default function Dashboard() {
     // Calcula faturamento (supondo que agendamentos tem preço)
     const faturamento = agendamentos
       .filter((a) => a.status === "concluido")
-      .reduce((sum, a) => sum + (parseFloat(a.servico_id?.valor || a.preco) || 0), 0);
+      .reduce((sum, a) => sum + (parseFloat(a.preco) || 0), 0);
     
     // Dias com agendamentos
-    const diasComAgendamentos = new Set(
-      agendamentos
-        .map((a) => a.data_agendamento?.substring(0, 10))
-        .filter(Boolean)
-    ).size;
+    const diasComAgendamentos = new Set(agendamentos.map((a) => a.data)).size;
     
     return { total, ativos, cancelados, concluidos, faturamento, totalClientes, diasComAgendamentos };
   }, [agendamentos, clientes]);
@@ -760,7 +719,7 @@ export default function Dashboard() {
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <button
                   onClick={() => {
-                    const linkUnico = `${window.location.origin}/${barbearia?.slug}`;
+                    const linkUnico = `${window.location.origin}/barbearia/${barbearia?.slug}`;
                     navigator.clipboard.writeText(linkUnico);
                     alert("Link copiado para a área de transferência!");
                   }}
@@ -854,13 +813,13 @@ export default function Dashboard() {
                     </thead>
                     <tbody>
                       {agendamentos.map((a) => (
-                        <tr key={a.$id}>
+                        <tr key={a.id}>
                           <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                            {a.data_agendamento ? formatarDataISOParaPT(a.data_agendamento.substring(0, 10)) : "—"}
+                            {formatarDataISOParaPT(a.data)}
                           </td>
-                          <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{a.horario?.slice(0, 5) || "—"}</td>
-                          <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{a.cliente_id?.nome || "—"}</td>
-                          <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{a.servico_id?.nome || "—"}</td>
+                          <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{a.horario.slice(0, 5)}</td>
+                          <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{a.cliente}</td>
+                          <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{a.servico}</td>
                           <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                             <span style={{ padding: "6px 10px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.03)", fontWeight: 900, fontSize: 12 }}>
                               {a.status}
@@ -902,10 +861,10 @@ export default function Dashboard() {
                     </thead>
                     <tbody>
                       {clientes.map((c) => (
-                        <tr key={c.$id}>
+                        <tr key={c.id}>
                           <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{c.nome}</td>
                           <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{c.telefone}</td>
-                          <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{c.email || "—"}</td>
+                          <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{c.email}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -952,9 +911,9 @@ export default function Dashboard() {
                       {servicosState.map((s) => (
                         <tr key={s.$id}>
                           <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{s.nome}</td>
-                          <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{s.duracao} min</td>
+                          <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{s.duracaoMin} min</td>
                           <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                            R$ {s.valor}
+                            R$ {s.preco}
                           </td>
                           <td style={{ padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                             <button
@@ -1047,7 +1006,7 @@ export default function Dashboard() {
           <div style={{ display: "grid", gap: 10 }}>
             {agendamentosDoDia.map((a) => (
               <div
-                key={a.$id}
+                key={a.id}
                 style={{
                   padding: 14,
                   borderRadius: 16,
@@ -1062,14 +1021,14 @@ export default function Dashboard() {
                 <div>
                   <div style={{ fontWeight: 1000, fontSize: 13, color: "rgba(255,255,255,0.65)" }}>Horário</div>
                   <div style={{ fontWeight: 1000, fontSize: 16, marginTop: 6 }}>
-                    {a.horario?.slice(0, 5) || "—"}
+                    {a.horario.slice(0, 5)}
                   </div>
                 </div>
 
                 <div>
-                  <div style={{ fontWeight: 1000 }}>{a.cliente_id?.nome || "—"}</div>
+                  <div style={{ fontWeight: 1000 }}>{a.cliente}</div>
                   <div style={{ marginTop: 6, color: "rgba(255,255,255,0.85)", fontSize: 14 }}>
-                    {a.servico_id?.nome || "—"} • {a.servico_id?.duracao || "—"} min
+                    {a.servico} • {a.duracaoMin} min
                   </div>
                   <div style={{ marginTop: 10 }}>
                     <span
