@@ -1,6 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { databases, COLLECTIONS, DB_ID, Query } from "../lib/appwrite";
-import { useSessaoBarbearia } from "./SessaoBarbeariaContexto";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { databases, COLLECTIONS, DB_ID, Query, getAccount } from "../lib/appwrite";
 
 const BarbeariaContexto = createContext(null);
 
@@ -11,53 +10,50 @@ export function useBarbearia() {
 }
 
 export function BarbeariaProvider({ children }) {
-  const { usuario, carregando: carregandoSessao } = useSessaoBarbearia();
-
   const [barbearia, setBarbearia] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState(null);
+  const carregouRef = useRef(false);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
     setErro(null);
-
     try {
-      if (!usuario || !DB_ID) {
-        setBarbearia(null);
-        return;
-      }
+      const user = await getAccount();
+      if (!user || !DB_ID) { setBarbearia(null); return; }
 
-      // user_id é campo STRING indexado (não Relationship) — Query.equal funciona
       const resp = await databases.listDocuments(DB_ID, COLLECTIONS.barbearias, [
-        Query.equal("user_id", usuario.$id),
-        Query.limit(1),
+        Query.limit(500),
       ]);
-
-      setBarbearia(resp?.documents?.[0] ?? null);
+      const found = resp?.documents?.find(d => {
+        const dUserId = typeof d.user_id === "string" ? d.user_id : d.user_id?.$id;
+        return dUserId === user.$id;
+      }) ?? null;
+      setBarbearia(found);
     } catch (e) {
-      console.error("BarbeariaContexto erro:", e);
-      setErro(e);
+      if (e?.code !== 401) {
+        console.error("BarbeariaContexto erro:", e);
+        setErro(e);
+      }
       setBarbearia(null);
     } finally {
       setCarregando(false);
     }
-  }, [usuario]);
+  }, []);
 
   useEffect(() => {
-    if (carregandoSessao) return;
+    if (carregouRef.current) return;
+    carregouRef.current = true;
     carregar();
-  }, [carregandoSessao, carregar]);
+  }, [carregar]);
 
-  const valor = useMemo(
-    () => ({
-      barbearia,
-      carregando,
-      erro,
-      setBarbearia,
-      recarregarBarbearia: carregar,
-    }),
-    [barbearia, carregando, erro, carregar]
-  );
+  const valor = useMemo(() => ({
+    barbearia,
+    carregando,
+    erro,
+    setBarbearia,
+    recarregarBarbearia: carregar,
+  }), [barbearia, carregando, erro, carregar]);
 
   return <BarbeariaContexto.Provider value={valor}>{children}</BarbeariaContexto.Provider>;
 }

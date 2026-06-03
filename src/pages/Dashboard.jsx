@@ -5,6 +5,17 @@ import { useBarbearia } from "../contextos/BarbeariaContexto";
 import { account, databases, COLLECTIONS, DB_ID, Query } from "../lib/appwrite";
 import { ID } from "appwrite";
 
+const inputStyle = {
+  width: "100%", padding: "10px 14px",
+  borderRadius: "var(--radius-sm)", border: "1px solid var(--border-default)",
+  background: "rgba(255,255,255,0.03)", color: "white", fontWeight: 500, fontSize: 14,
+  outline: "none", boxSizing: "border-box",
+  transition: "all var(--duration-fast) var(--ease-out)",
+};
+const inputFocus = (e) => e.target.style.borderColor = "var(--border-focus)";
+const inputBlur = (e) => e.target.style.borderColor = "var(--border-default)";
+const labelStyle = { display: "block", marginBottom: 6, fontWeight: 700, fontSize: 13, color: "var(--text-secondary)" };
+
 function formatarDataISOParaPT(dataISO) {
   // dataISO: YYYY-MM-DD
   const [y, m, d] = dataISO.split("-").map((x) => Number(x));
@@ -22,59 +33,44 @@ function Modal({ aberto, titulo, onFechar, children }) {
   return (
     <div
       style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.55)",
-        zIndex: 1000,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 18,
+        position: "fixed", inset: 0,
+        background: "rgba(0,0,0,0.65)", zIndex: 1000,
+        display: "flex", alignItems: "center", justifyContent: "center", padding: 18,
+        backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+        animation: "fadeIn 0.2s ease",
       }}
-      role="dialog"
-      aria-modal="true"
-      onMouseDown={onFechar}
+      role="dialog" aria-modal="true" onMouseDown={onFechar}
     >
       <div
         style={{
-          width: "100%",
-          maxWidth: 720,
-          borderRadius: 18,
-          background: "linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03))",
-          border: "1px solid rgba(255,255,255,0.12)",
-          boxShadow: "0 30px 90px rgba(0,0,0,0.55)",
-          color: "white",
+          width: "100%", maxWidth: 720,
+          borderRadius: "var(--radius-xl)",
+          background: "rgba(14,14,18,0.95)",
+          border: "1px solid var(--border-default)",
+          boxShadow: "var(--shadow-xl)",
+          color: "white", animation: "scaleIn 0.2s var(--ease-out)",
         }}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div
-          style={{
-            padding: 16,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            borderBottom: "1px solid rgba(255,255,255,0.08)",
+        <div style={{
+          padding: "16px 20px", display: "flex", alignItems: "center",
+          justifyContent: "space-between", gap: 12,
+          borderBottom: "1px solid var(--border-subtle)",
+        }}>
+          <div style={{ fontWeight: 800, fontSize: 16 }}>{titulo}</div>
+          <button onClick={onFechar} style={{
+            width: 36, height: 36, borderRadius: "var(--radius-sm)",
+            border: "1px solid var(--border-default)",
+            background: "rgba(255,255,255,0.04)", color: "var(--text-secondary)",
+            cursor: "pointer", fontWeight: 700, fontSize: 18,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "all var(--duration-fast) var(--ease-out)",
           }}
-        >
-          <div style={{ fontWeight: 900 }}>{titulo}</div>
-          <button
-            onClick={onFechar}
-            style={{
-              padding: "10px 12px",
-              borderRadius: 14,
-              border: "1px solid rgba(255,255,255,0.12)",
-              background: "rgba(255,255,255,0.04)",
-              color: "white",
-              cursor: "pointer",
-              fontWeight: 900,
-            }}
-          >
-            Fechar
-          </button>
+          onMouseEnter={e => { e.currentTarget.style.background = "var(--danger-soft)"; e.currentTarget.style.color = "var(--danger)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+          >×</button>
         </div>
-
-        <div style={{ padding: 16 }}>{children}</div>
+        <div style={{ padding: 20 }}>{children}</div>
       </div>
     </div>
   );
@@ -84,17 +80,17 @@ function Card({ children, variante = "normal" }) {
   const style =
     variante === "destaque"
       ? {
-          background: "rgba(253,166,60,0.08)",
-          border: "1px solid rgba(253,166,60,0.22)",
+          background: "var(--gold-soft)",
+          border: "1px solid var(--gold-border)",
         }
       : variante === "rosa"
       ? {
-          background: "rgba(253,54,110,0.10)",
-          border: "1px solid rgba(253,54,110,0.25)",
+          background: "var(--accent-soft)",
+          border: "1px solid var(--accent-border)",
         }
       : {
-          background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))",
-          border: "1px solid rgba(255,255,255,0.10)",
+          background: "var(--bg-card)",
+          border: "1px solid var(--border-default)",
         };
 
   return (
@@ -124,14 +120,21 @@ function Botao({
   const isPrimario = variante === "primario";
   const base = isPrimario
     ? {
-        background: "#FD366E",
-        border: "1px solid rgba(255,255,255,0.10)",
+        background: "var(--accent)",
+        border: "1px solid rgba(255,255,255,0.08)",
         color: "white",
+        boxShadow: "0 2px 12px rgba(253,54,110,0.25)",
+      }
+    : variante === "perigo"
+    ? {
+        background: "var(--danger-soft)",
+        border: "1px solid var(--danger-border)",
+        color: "var(--danger)",
       }
     : {
-        background: "rgba(255,255,255,0.06)",
-        border: "1px solid rgba(255,255,255,0.10)",
-        color: "white",
+        background: "rgba(255,255,255,0.04)",
+        border: "1px solid var(--border-default)",
+        color: "var(--text-primary)",
       };
 
   return (
@@ -140,13 +143,16 @@ function Botao({
       onClick={onClick}
       disabled={disabled}
       style={{
-        padding: "10px 14px",
-        borderRadius: 14,
+        padding: "10px 16px",
+        borderRadius: "var(--radius-sm)",
         cursor: disabled ? "not-allowed" : "pointer",
-        fontWeight: 900,
+        fontWeight: 700, fontSize: 14,
+        transition: "all var(--duration-fast) var(--ease-out)",
         ...(base || {}),
         ...(style || {}),
       }}
+      onMouseEnter={e => { if (!disabled && isPrimario) { e.currentTarget.style.background = "var(--accent-hover)"; } }}
+      onMouseLeave={e => { if (!disabled && isPrimario) { e.currentTarget.style.background = "var(--accent)"; } }}
     >
       {children}
     </button>
@@ -192,7 +198,7 @@ function FormServicoModal({ servico, onSalvar, onCancelar }) {
   return (
     <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
       <div>
-        <label style={{ display: "block", marginBottom: 6, fontWeight: 800, fontSize: 13 }}>
+        <label style={labelStyle}>
           Nome do serviço *
         </label>
         <input
@@ -201,21 +207,15 @@ function FormServicoModal({ servico, onSalvar, onCancelar }) {
           value={formData.nome}
           onChange={handleChange}
           required
-          style={{
-            width: "100%",
-            padding: "10px 12px",
-            borderRadius: 10,
-            border: "1px solid rgba(255,255,255,0.15)",
-            background: "rgba(255,255,255,0.05)",
-            color: "white",
-            fontWeight: 500,
-          }}
+          style={inputStyle}
+          onFocus={inputFocus}
+          onBlur={inputBlur}
           placeholder="Ex: Corte de cabelo"
         />
       </div>
 
       <div>
-        <label style={{ display: "block", marginBottom: 6, fontWeight: 800, fontSize: 13 }}>
+        <label style={labelStyle}>
           Preço (R$) *
         </label>
         <input
@@ -226,21 +226,15 @@ function FormServicoModal({ servico, onSalvar, onCancelar }) {
           required
           step="0.01"
           min="0"
-          style={{
-            width: "100%",
-            padding: "10px 12px",
-            borderRadius: 10,
-            border: "1px solid rgba(255,255,255,0.15)",
-            background: "rgba(255,255,255,0.05)",
-            color: "white",
-            fontWeight: 500,
-          }}
+          style={inputStyle}
+          onFocus={inputFocus}
+          onBlur={inputBlur}
           placeholder="0.00"
         />
       </div>
 
       <div>
-        <label style={{ display: "block", marginBottom: 6, fontWeight: 800, fontSize: 13 }}>
+        <label style={labelStyle}>
           Duração (minutos) *
         </label>
         <input
@@ -250,15 +244,9 @@ function FormServicoModal({ servico, onSalvar, onCancelar }) {
           onChange={handleChange}
           required
           min="1"
-          style={{
-            width: "100%",
-            padding: "10px 12px",
-            borderRadius: 10,
-            border: "1px solid rgba(255,255,255,0.15)",
-            background: "rgba(255,255,255,0.05)",
-            color: "white",
-            fontWeight: 500,
-          }}
+          style={inputStyle}
+          onFocus={inputFocus}
+          onBlur={inputBlur}
           placeholder="30"
         />
       </div>
@@ -351,35 +339,26 @@ function Calendario({
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <div style={{ fontWeight: 900, fontSize: 16 }}>{formatarMesAno(dataReferencia)}</div>
+        <div style={{ fontWeight: 800, fontSize: 16 }}>{formatarMesAno(dataReferencia)}</div>
       </div>
 
-      <div
-        style={{
-          marginTop: 12,
-          display: "grid",
-          gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
-          gap: 8,
-        }}
-      >
+      <div style={{
+        marginTop: 12, display: "grid",
+        gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 6,
+      }}>
         {diasSemana.map((d) => (
-          <div
-            key={d}
-            style={{
-              textAlign: "center",
-              fontWeight: 900,
-              fontSize: 12,
-              color: "rgba(255,255,255,0.75)",
-              paddingBottom: 6,
-            }}
-          >
+          <div key="d" style={{
+            textAlign: "center", fontWeight: 700, fontSize: 11,
+            color: "var(--text-muted)", paddingBottom: 6,
+            textTransform: "uppercase", letterSpacing: "0.05em",
+          }}>
             {d}
           </div>
         ))}
 
         {grid.map((cell, idx) => {
           if (!cell.diaNum) {
-            return <div key={idx} style={{ height: 46 }} />;
+            return <div key={idx} style={{ height: 44 }} />;
           }
 
           const tem = cell.temAgendamento;
@@ -388,13 +367,14 @@ function Calendario({
               key={idx}
               onClick={() => onSelecionarDia(cell.data)}
               style={{
-                height: 46,
-                borderRadius: 14,
-                cursor: "pointer",
-                border: tem ? "2px solid #F2B705" : "1px solid rgba(255,255,255,0.10)",
-                background: tem ? "rgba(242,183,5,0.10)" : "rgba(255,255,255,0.03)",
-                color: "white",
-                fontWeight: 900,
+                height: 44,
+                borderRadius: "var(--radius-sm)",
+                cursor: "pointer", fontSize: 14,
+                border: tem ? "1px solid var(--gold-border)" : "1px solid var(--border-subtle)",
+                background: tem ? "var(--gold-soft)" : "rgba(255,255,255,0.02)",
+                color: tem ? "var(--gold)" : "var(--text-secondary)",
+                fontWeight: 700,
+                transition: "all var(--duration-fast) var(--ease-out)",
               }}
               title={tem ? "Possui agendamentos" : "Sem agendamentos"}
             >
@@ -427,15 +407,16 @@ export default function Dashboard() {
   if (!slug) {
     return (
       <main style={{
-        minHeight: "100vh",
-        padding: 24,
-        color: "white",
-        background: "radial-gradient(900px circle at 10% 10%, rgba(253,54,110,0.18), transparent 40%), radial-gradient(700px circle at 90% 0%, rgba(253,166,60,0.12), transparent 45%), rgba(0,0,0,0.5)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
+        minHeight: "100vh", padding: 24, color: "white",
+        background: "var(--bg-primary)",
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16,
       }}>
-        <h1 style={{ margin: 0, fontSize: 32, fontWeight: 900 }}>Carregando...</h1>
+        <div style={{
+          width: 36, height: 36, border: "3px solid rgba(255,255,255,0.08)",
+          borderTopColor: "var(--accent)", borderRadius: "50%",
+          animation: "spin 0.7s linear infinite",
+        }} />
+        <p style={{ color: "var(--text-muted)", fontSize: 14 }}>Carregando...</p>
       </main>
     );
   }
@@ -636,41 +617,39 @@ export default function Dashboard() {
   ];
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        padding: 18,
-        color: "white",
-        background: "radial-gradient(900px circle at 10% 10%, rgba(253,54,110,0.18), transparent 40%), radial-gradient(700px circle at 90% 0%, rgba(253,166,60,0.12), transparent 45%), rgba(0,0,0,0.25)",
-      }}
-    >
-      <div
-        style={{
-          maxWidth: 1200,
-          margin: "0 auto",
-          display: "grid",
-          gridTemplateColumns: "260px 1fr",
-          gap: 16,
-          alignItems: "start",
-        }}
-      >
-        <aside style={{ position: "sticky", top: 14 }}>
-          <div style={{ padding: 16, borderRadius: 18, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.10)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-              <div>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", fontWeight: 800 }}>
-                  Barbearia (sessão)
+    <div style={{
+      minHeight: "100vh", padding: 20, color: "white",
+      background: "var(--bg-primary)",
+    }}>
+      <div style={{
+        maxWidth: 1280, margin: "0 auto",
+        display: "grid", gridTemplateColumns: "250px 1fr", gap: 20, alignItems: "start",
+      }}>
+        <aside style={{ position: "sticky", top: 20 }}>
+          <div style={{
+            padding: 18, borderRadius: "var(--radius-lg)",
+            background: "var(--bg-card)", border: "1px solid var(--border-default)",
+            boxShadow: "var(--shadow-md)",
+          }}>
+            {/* Nome barbearia */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: "var(--radius-md)",
+                background: "var(--accent-soft)", border: "1px solid var(--accent-border)",
+                display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18,
+              }}>✂️</div>
+              <div style={{ overflow: "hidden" }}>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  Barbearia
                 </div>
-                <div style={{ fontWeight: 1000, fontSize: 16 }}>
+                <div style={{ fontWeight: 800, fontSize: 15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {barbearia?.nome || barbearia?.nomeBarbearia || "—"}
                 </div>
               </div>
-              <div style={{ width: 42, height: 42, borderRadius: 16, background: "rgba(253,54,110,0.12)", border: "1px solid rgba(253,54,110,0.30)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                ✂️
-              </div>
             </div>
 
-            <div style={{ marginTop: 14, display: "grid", gap: 8 }}>
+            {/* Nav */}
+            <div style={{ display: "grid", gap: 4 }}>
               {itensNav.map((item) => {
                 const active = aba === item.chave;
                 return (
@@ -678,16 +657,17 @@ export default function Dashboard() {
                     key={item.chave}
                     onClick={() => setAba(item.chave)}
                     style={{
-                      width: "100%",
-                      textAlign: "left",
-                      padding: "12px 12px",
-                      borderRadius: 16,
-                      border: active ? "1px solid rgba(242,183,5,0.65)" : "1px solid rgba(255,255,255,0.10)",
-                      background: active ? "rgba(242,183,5,0.10)" : "rgba(255,255,255,0.03)",
-                      color: "white",
-                      cursor: "pointer",
-                      fontWeight: 900,
+                      width: "100%", textAlign: "left",
+                      padding: "10px 12px", borderRadius: "var(--radius-sm)",
+                      border: "1px solid",
+                      borderColor: active ? "var(--accent-border)" : "transparent",
+                      background: active ? "var(--accent-soft)" : "transparent",
+                      color: active ? "var(--accent)" : "var(--text-secondary)",
+                      cursor: "pointer", fontWeight: active ? 700 : 500,
+                      fontSize: 14, transition: "all var(--duration-fast) var(--ease-out)",
                     }}
+                    onMouseEnter={e => { if (!active) { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.color = "var(--text-primary)"; } }}
+                    onMouseLeave={e => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; } }}
                   >
                     {tAba[item.chave]}
                   </button>
@@ -697,9 +677,9 @@ export default function Dashboard() {
 
             <div style={{ marginTop: 14 }}>
               <Botao
-                variante="secundario"
+                variante="perigo"
                 onClick={logout}
-                style={{ width: "100%", background: "rgba(255,128,128,0.10)", border: "1px solid rgba(255,128,128,0.25)" }}
+                style={{ width: "100%" }}
               >
                 Sair
               </Botao>
@@ -708,15 +688,19 @@ export default function Dashboard() {
         </aside>
 
         <main style={{ display: "grid", gap: 16 }}>
-          <header style={{ padding: 16, borderRadius: 18, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.10)" }}>
+          <header style={{
+            padding: 16, borderRadius: "var(--radius-lg)",
+            background: "var(--bg-card)", border: "1px solid var(--border-default)",
+            boxShadow: "var(--shadow-sm)",
+          }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
               <div>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", fontWeight: 800 }}>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                   Área logada
                 </div>
-                <div style={{ fontSize: 22, fontWeight: 1000 }}>{tAba[aba]}</div>
+                <div style={{ fontSize: 22, fontWeight: 800 }}>{tAba[aba]}</div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <button
                   onClick={() => {
                     const linkUnico = `${window.location.origin}/barbearia/${barbearia?.slug}`;
@@ -724,14 +708,11 @@ export default function Dashboard() {
                     alert("Link copiado para a área de transferência!");
                   }}
                   style={{
-                    padding: "8px 12px",
-                    borderRadius: 10,
-                    border: "1px solid rgba(242,183,5,0.35)",
-                    background: "rgba(242,183,5,0.10)",
-                    color: "white",
-                    cursor: "pointer",
-                    fontWeight: 900,
-                    fontSize: 13,
+                    padding: "8px 14px", borderRadius: "var(--radius-sm)",
+                    border: "1px solid var(--gold-border)",
+                    background: "var(--gold-soft)", color: "var(--gold)",
+                    cursor: "pointer", fontWeight: 700, fontSize: 13,
+                    transition: "all var(--duration-fast) var(--ease-out)",
                   }}
                   title="Copiar link único para compartilhar com clientes"
                 >
@@ -747,32 +728,32 @@ export default function Dashboard() {
           {aba === "estatisticas" ? (
             <section style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12 }}>
               <Card>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", fontWeight: 800 }}>Total agendamentos</div>
-                <div style={{ fontSize: 28, fontWeight: 1000, marginTop: 6 }}>{metrics.total}</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Total agendamentos</div>
+                <div style={{ fontSize: 28, fontWeight: 800, marginTop: 6 }}>{metrics.total}</div>
               </Card>
               <Card variante="destaque">
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", fontWeight: 800 }}>Ativos</div>
-                <div style={{ fontSize: 28, fontWeight: 1000, marginTop: 6 }}>{metrics.ativos}</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Ativos</div>
+                <div style={{ fontSize: 28, fontWeight: 800, marginTop: 6 }}>{metrics.ativos}</div>
               </Card>
               <Card>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", fontWeight: 800 }}>Cancelados</div>
-                <div style={{ fontSize: 28, fontWeight: 1000, marginTop: 6 }}>{metrics.cancelados}</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Cancelados</div>
+                <div style={{ fontSize: 28, fontWeight: 800, marginTop: 6 }}>{metrics.cancelados}</div>
               </Card>
               <Card>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", fontWeight: 800 }}>Concluídos</div>
-                <div style={{ fontSize: 28, fontWeight: 1000, marginTop: 6 }}>{metrics.concluidos}</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Concluídos</div>
+                <div style={{ fontSize: 28, fontWeight: 800, marginTop: 6 }}>{metrics.concluidos}</div>
               </Card>
 
               <Card variante="rosa">
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", fontWeight: 800 }}>Total de clientes</div>
-                <div style={{ fontSize: 28, fontWeight: 1000, marginTop: 6 }}>{metrics.totalClientes}</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Total de clientes</div>
+                <div style={{ fontSize: 28, fontWeight: 800, marginTop: 6 }}>{metrics.totalClientes}</div>
               </Card>
               <Card>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", fontWeight: 800 }}>Dias com agendamentos</div>
-                <div style={{ fontSize: 28, fontWeight: 1000, marginTop: 6 }}>{metrics.diasComAgendamentos}</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Dias com agendamentos</div>
+                <div style={{ fontSize: 28, fontWeight: 800, marginTop: 6 }}>{metrics.diasComAgendamentos}</div>
               </Card>
               <Card>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", fontWeight: 800 }}>Faturamento</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Faturamento</div>
                 <div style={{ fontSize: 24, fontWeight: 1000, marginTop: 6 }}>
                   R$ {metrics.faturamento.toFixed(2).replace(".", ",")}
                 </div>

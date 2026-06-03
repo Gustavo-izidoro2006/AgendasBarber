@@ -11,9 +11,9 @@ export default function RotasPrivadas() {
     <Routes>
       {/* Paths relativos ao /dashboard/:slug/* do pai */}
       <Route index element={<Dashboard />} />
-      <Route path="onboarding" element={<Onboarding />} />
       <Route path="servicos" element={<Servicos />} />
       <Route path="configuracoes" element={<Configuracoes />} />
+      {/* Onboarding deve ser acessado via /onboarding (rota fora do /dashboard) */}
       {/* fallback */}
       <Route
         path="*"

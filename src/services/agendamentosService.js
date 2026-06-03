@@ -123,4 +123,3 @@ export async function removerAgendamento(agendamentoId) {
     throw new Error("Falha ao remover agendamento. Tente novamente.");
   }
 }
-

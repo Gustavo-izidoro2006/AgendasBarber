@@ -27,167 +27,139 @@ export default function Cadastro() {
 
   const isDisabled = carregando || !nomeBarbearia.trim() || !email.trim() || !senha.trim();
 
-  const inputStyle = {
-    width: "100%",
-    padding: "12px 14px",
-    borderRadius: 10,
-    border: "1px solid rgba(255,255,255,0.08)",
-    background: "rgba(255,255,255,0.04)",
-    color: "white",
-    outline: "none",
-    fontSize: 15,
-    transition: "all 0.15s ease",
-    boxSizing: "border-box",
+  const inputBase = {
+    width: "100%", padding: "13px 16px 13px 42px",
+    borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)",
+    background: "rgba(255,255,255,0.03)", color: "white", outline: "none", fontSize: 15,
+    transition: "all var(--duration-fast) var(--ease-out)", boxSizing: "border-box",
   };
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 24,
-        background: "radial-gradient(ellipse at 50% 0%, rgba(253,54,110,0.06) 0%, #0a0a0a 60%)",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 420,
-          padding: 32,
-          borderRadius: 16,
-          background: "rgba(255,255,255,0.04)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          boxShadow: "0 4px 24px rgba(0,0,0,0.3)",
-          animation: "fadeSlideUp 0.25s ease forwards",
-        }}
-      >
+    <main style={{
+      minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+      padding: "80px 24px", position: "relative", overflow: "hidden",
+      background: `
+        radial-gradient(ellipse 70% 50% at 50% -20%, rgba(253,54,110,0.06) 0%, var(--bg-primary) 60%)
+      `,
+    }}>
+      <div style={{
+        width: "100%", maxWidth: 440, padding: "36px 32px",
+        borderRadius: "var(--radius-xl)", background: "rgba(255,255,255,0.02)",
+        border: "1px solid var(--border-default)", boxShadow: "var(--shadow-xl)",
+        animation: "fadeSlideUp 0.4s var(--ease-out) forwards",
+        position: "relative", zIndex: 1,
+      }}>
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <div
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: 16,
-              background: "rgba(253,54,110,0.15)",
-              border: "1px solid rgba(253,54,110,0.35)",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 24,
-              marginBottom: 12,
-            }}
-            aria-hidden="true"
-          >
-            🧑‍🦱
-          </div>
-          <h1 style={{ margin: 0, color: "white", fontSize: 26, fontWeight: 700 }}>
-            Criar conta
+          <div style={{
+            width: 52, height: 52, borderRadius: "var(--radius-md)", margin: "0 auto 14px",
+            background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 22, boxShadow: "0 4px 20px rgba(253,54,110,0.3)",
+          }}>✂️</div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 6, letterSpacing: "-0.02em" }}>
+            Criar sua barbearia
           </h1>
-          <p style={{ margin: "8px 0 0", color: "rgba(255,255,255,0.55)", fontSize: 14 }}>
-            Cadastre sua barbearia e comece a agendar
+          <p style={{ color: "var(--text-muted)", fontSize: 14, lineHeight: 1.5 }}>
+            Configure em minutos. Sem cartão de crédito.
           </p>
         </div>
 
-        <form onSubmit={enviar}>
-          <label style={{ display: "block", marginBottom: 14 }}>
-            <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 13, marginBottom: 6, fontWeight: 600 }}>
+        {/* Erro */}
+        {erro && (
+          <div style={{
+            padding: "10px 14px", borderRadius: "var(--radius-sm)", marginBottom: 16,
+            background: "var(--danger-soft)", border: "1px solid var(--danger-border)",
+            color: "var(--danger)", fontSize: 14, fontWeight: 500,
+            animation: "fadeSlideUp 0.2s ease",
+          }}>
+            ⚠️ {erro}
+          </div>
+        )}
+
+        {/* Form */}
+        <form onSubmit={enviar} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Nome */}
+          <div>
+            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
               Nome da barbearia
+            </label>
+            <div style={{ position: "relative" }}>
+              <span style={{
+                position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)",
+                fontSize: 15, opacity: 0.4, pointerEvents: "none",
+              }}>🏪</span>
+              <input
+                placeholder="Ex: Barbearia do João" value={nomeBarbearia}
+                onChange={e => setNomeBarbearia(e.target.value)}
+                onFocus={e => e.target.style.borderColor = "var(--border-focus)"}
+                onBlur={e => e.target.style.borderColor = "var(--border-default)"}
+                style={inputBase}
+              />
             </div>
-            <input
-              value={nomeBarbearia}
-              onChange={(e) => setNomeBarbearia(e.target.value)}
-              type="text"
-              required
-              style={inputStyle}
-              onFocus={(e) => (e.target.style.outline = "2px solid #FD366E")}
-              onBlur={(e) => (e.target.style.outline = "none")}
-              placeholder="Ex: Barbearia do João"
-            />
-          </label>
+          </div>
 
-          <label style={{ display: "block", marginBottom: 14 }}>
-            <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 13, marginBottom: 6, fontWeight: 600 }}>
+          {/* Email */}
+          <div>
+            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
               E-mail
+            </label>
+            <div style={{ position: "relative" }}>
+              <span style={{
+                position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)",
+                fontSize: 15, opacity: 0.4, pointerEvents: "none",
+              }}>📧</span>
+              <input
+                type="email" placeholder="seu@email.com" value={email}
+                onChange={e => setEmail(e.target.value)}
+                onFocus={e => e.target.style.borderColor = "var(--border-focus)"}
+                onBlur={e => e.target.style.borderColor = "var(--border-default)"}
+                style={inputBase}
+              />
             </div>
-            <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              type="email"
-              required
-              style={inputStyle}
-              onFocus={(e) => (e.target.style.outline = "2px solid #FD366E")}
-              onBlur={(e) => (e.target.style.outline = "none")}
-              placeholder="seu@email.com"
-            />
-          </label>
+          </div>
 
-          <label style={{ display: "block", marginBottom: 16 }}>
-            <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 13, marginBottom: 6, fontWeight: 600 }}>
+          {/* Senha */}
+          <div>
+            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
               Senha
+            </label>
+            <div style={{ position: "relative" }}>
+              <span style={{
+                position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)",
+                fontSize: 15, opacity: 0.4, pointerEvents: "none",
+              }}>🔒</span>
+              <input
+                type="password" placeholder="Mínimo 6 caracteres" value={senha}
+                onChange={e => setSenha(e.target.value)}
+                onFocus={e => e.target.style.borderColor = "var(--border-focus)"}
+                onBlur={e => e.target.style.borderColor = "var(--border-default)"}
+                style={inputBase}
+              />
             </div>
-            <input
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-              type="password"
-              required
-              style={inputStyle}
-              onFocus={(e) => (e.target.style.outline = "2px solid #FD366E")}
-              onBlur={(e) => (e.target.style.outline = "none")}
-              placeholder="Mínimo 8 caracteres"
-            />
-          </label>
-
-          {erro && (
-            <div
-              style={{
-                marginBottom: 14,
-                padding: "10px 14px",
-                borderRadius: 10,
-                border: "1px solid rgba(253,54,110,0.3)",
-                background: "rgba(253,54,110,0.1)",
-                color: "#FD366E",
-                fontSize: 13,
-                fontWeight: 600,
-              }}
-              role="alert"
-            >
-              {erro}
-            </div>
-          )}
+          </div>
 
           <button
-            type="submit"
-            disabled={isDisabled}
+            type="submit" disabled={isDisabled}
             style={{
-              width: "100%",
-              padding: "13px 16px",
-              borderRadius: 10,
-              border: "none",
-              background: isDisabled ? "rgba(253,54,110,0.35)" : "#FD366E",
-              color: "white",
-              fontSize: 15,
-              fontWeight: 700,
+              width: "100%", padding: "14px", borderRadius: "var(--radius-md)", border: "none",
+              background: isDisabled ? "rgba(255,255,255,0.06)" : "var(--accent)",
+              color: isDisabled ? "var(--text-muted)" : "white",
               cursor: isDisabled ? "not-allowed" : "pointer",
-              transition: "all 0.15s ease",
+              fontWeight: 700, fontSize: 15, marginTop: 4,
+              transition: "all var(--duration-fast) var(--ease-out)",
+              boxShadow: isDisabled ? "none" : "0 4px 20px rgba(253,54,110,0.25)",
             }}
+            onMouseEnter={e => { if (!isDisabled) { e.currentTarget.style.background = "var(--accent-hover)"; e.currentTarget.style.transform = "translateY(-1px)"; } }}
+            onMouseLeave={e => { if (!isDisabled) { e.currentTarget.style.background = "var(--accent)"; e.currentTarget.style.transform = "translateY(0)"; } }}
           >
-            {carregando ? "Criando conta..." : "Criar conta"}
+            {carregando ? "Criando..." : "Criar conta →"}
           </button>
-
-          <div style={{ marginTop: 16, display: "flex", justifyContent: "center" }}>
-            <span style={{ color: "rgba(255,255,255,0.55)", fontSize: 14 }}>
-              Já tem conta?{" "}
-              <Link
-                to="/login"
-                style={{ color: "#FD366E", textDecoration: "none", fontWeight: 600 }}
-              >
-                Entrar
-              </Link>
-            </span>
-          </div>
         </form>
+
+        <div style={{ textAlign: "center", marginTop: 20, fontSize: 14, color: "var(--text-muted)" }}>
+          Já tem conta?{" "}
+          <Link to="/login" style={{ fontWeight: 600, color: "var(--accent)" }}>Entrar</Link>
+        </div>
       </div>
     </main>
   );

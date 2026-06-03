@@ -7,35 +7,36 @@ import { criarServico } from "../services/servicosService";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
-/**
- * Gera um ID determinístico baseado em uma string.
- * Mesmo input → mesmo output → sem 409 em reexecuções.
- * Formato: primeiros 36 chars de base36 do hash simples.
- */
 function deterministicId(str) {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     hash = (Math.imul(31, hash) + str.charCodeAt(i)) | 0;
   }
   const unsigned = (hash >>> 0).toString(36);
-  // Garante 8 chars e prefixo para Appwrite ID válido (não pode começar com número)
   return "id" + unsigned.padStart(8, "0").substring(0, 8);
 }
 
-// ─── componentes ─────────────────────────────────────────────────────────────
+// ─── sub-componentes visuais ────────────────────────────────────────────────
 
 function Progresso({ etapaAtual, total }) {
   const percent = Math.round((etapaAtual / total) * 100);
   return (
     <div style={{ width: "100%", marginTop: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-        <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 14, fontWeight: 800 }}>
+        <div style={{ color: "var(--text-primary)", fontSize: 14, fontWeight: 800 }}>
           Etapa {etapaAtual} de {total}
         </div>
-        <div style={{ color: "rgba(255,255,255,0.65)", fontSize: 13 }}>{percent}%</div>
+        <div style={{ color: "var(--text-muted)", fontSize: 13 }}>{percent}%</div>
       </div>
-      <div style={{ height: 10, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
-        <div style={{ width: `${percent}%`, height: "100%", background: "linear-gradient(90deg,#FD366E,#F2A63A)", transition: "width 0.3s ease" }} />
+      <div style={{
+        height: 6, borderRadius: "var(--radius-full)",
+        background: "rgba(255,255,255,0.06)", overflow: "hidden",
+      }}>
+        <div style={{
+          width: `${percent}%`, height: "100%",
+          background: "linear-gradient(90deg, var(--accent), #F2A63A)",
+          transition: "width 0.4s var(--ease-out)", borderRadius: "var(--radius-full)",
+        }} />
       </div>
     </div>
   );
@@ -43,16 +44,36 @@ function Progresso({ etapaAtual, total }) {
 
 function Card({ children }) {
   return (
-    <div style={{ width: "100%", maxWidth: 980, margin: "0 auto", padding: 22, borderRadius: 18, background: "linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))", border: "1px solid rgba(255,255,255,0.10)", boxShadow: "0 20px 60px rgba(0,0,0,0.35)" }}>
+    <div style={{
+      width: "100%", maxWidth: 980, margin: "0 auto", padding: 22,
+      borderRadius: "var(--radius-xl)",
+      background: "var(--bg-card)",
+      border: "1px solid var(--border-default)",
+      boxShadow: "var(--shadow-xl)",
+      animation: "fadeSlideUp 0.3s var(--ease-out) forwards",
+    }}>
       {children}
     </div>
   );
 }
 
 function Botao({ children, variante = "primario", ...props }) {
-  const bg = variante === "secundario" ? "rgba(255,255,255,0.06)" : "#FD366E";
+  const bg = variante === "secundario" ? "rgba(255,255,255,0.04)" : "var(--accent)";
+  const border = variante === "secundario" ? "var(--border-default)" : "rgba(255,255,255,0.08)";
   return (
-    <button {...props} style={{ padding: "12px 18px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.10)", background: bg, color: "white", cursor: props.disabled ? "not-allowed" : "pointer", fontWeight: 900, opacity: props.disabled ? 0.5 : 1, ...(props.style || {}) }}>
+    <button {...props} style={{
+      padding: "12px 18px", borderRadius: "var(--radius-md)",
+      border: `1px solid ${border}`, background: bg,
+      color: "white", cursor: props.disabled ? "not-allowed" : "pointer",
+      fontWeight: 700, fontSize: 15,
+      opacity: props.disabled ? 0.5 : 1,
+      transition: "all var(--duration-fast) var(--ease-out)",
+      boxShadow: variante === "primario" ? "0 4px 16px rgba(253,54,110,0.25)" : "none",
+      ...(props.style || {}),
+    }}
+    onMouseEnter={e => { if (!props.disabled && variante === "primario") { e.currentTarget.style.background = "var(--accent-hover)"; e.currentTarget.style.transform = "translateY(-1px)"; } }}
+    onMouseLeave={e => { if (!props.disabled && variante === "primario") { e.currentTarget.style.background = "var(--accent)"; e.currentTarget.style.transform = "translateY(0)"; } }}
+    >
       {children}
     </button>
   );
@@ -61,17 +82,20 @@ function Botao({ children, variante = "primario", ...props }) {
 function Campo({ label, children }) {
   return (
     <label style={{ display: "block", marginBottom: 12 }}>
-      <div style={{ color: "rgba(255,255,255,0.86)", fontSize: 14, marginBottom: 6 }}>{label}</div>
+      <div style={{
+        color: "var(--text-secondary)", fontSize: 13, marginBottom: 6, fontWeight: 600,
+      }}>{label}</div>
       {children}
     </label>
   );
 }
 
 const inputStyle = {
-  width: "100%", padding: "12px", borderRadius: 14,
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(255,255,255,0.04)", color: "white", outline: "none",
-  boxSizing: "border-box",
+  width: "100%", padding: "12px 14px", borderRadius: "var(--radius-sm)",
+  border: "1px solid var(--border-default)",
+  background: "rgba(255,255,255,0.03)", color: "white", outline: "none",
+  boxSizing: "border-box", fontSize: 15,
+  transition: "all var(--duration-fast) var(--ease-out)",
 };
 
 // ─── página ──────────────────────────────────────────────────────────────────
@@ -113,7 +137,6 @@ export default function Onboarding() {
     setErroSalvar(null);
 
     try {
-      // 1) Resolve barbeariaId e slug
       const user = usuario;
       if (!user) { navigate("/login", { replace: true }); return; }
 
@@ -139,9 +162,6 @@ export default function Onboarding() {
       const slug = barbeariaDoc.slug;
       if (!barbeariaId || !slug) throw new Error("Dados da barbearia não resolvidos.");
 
-      // 2) Configuracoes — ID determinístico: "cfg-" + barbeariaId truncado
-      //    Usando upsertById (PUT) do SDK — cria se não existe, atualiza se existe.
-      //    ZERO 409 porque o ID é sempre o mesmo para a mesma barbearia.
       const configId = deterministicId("config-" + barbeariaId);
       await upsertById("configuracoes", configId, {
         barbearia_id: barbeariaId,
@@ -150,7 +170,6 @@ export default function Onboarding() {
         antecedencia_minima: 1,
       });
 
-      // 3) Horários — ID determinístico por (barbeariaId + dia_semana)
       const mapDias = { dom: 0, seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, sab: 6 };
       const abertura  = horarios?.inicio || "08:00";
       const fechamento = horarios?.fim   || "18:00";
@@ -171,7 +190,6 @@ export default function Onboarding() {
         });
       }
 
-      // 4) Serviços — ID determinístico por (barbeariaId + nome do serviço)
       for (const srv of servicos) {
         if (!srv.nome?.trim()) continue;
         const duracao = String(srv.duracaoMin ?? 30);
@@ -189,7 +207,6 @@ export default function Onboarding() {
         });
       }
 
-      // 5) Marca onboarding como completo (mesmo ID determinístico)
       await upsertById("configuracoes", configId, {
         barbearia_id: barbeariaId,
         onboarding_completo: true,
@@ -197,7 +214,6 @@ export default function Onboarding() {
         antecedencia_minima: 1,
       });
 
-      // 6) Atualiza o contexto de barbearia localmente e navega para dashboard
       setBarbearia(barbeariaDoc);
       navigate(`/dashboard/${slug}`, { replace: true });
 
@@ -211,29 +227,42 @@ export default function Onboarding() {
 
   // ── RENDER ────────────────────────────────────────────────────────────────
   return (
-    <main style={{ padding: 24, color: "white", minHeight: "100vh", background: "#0a0a0a" }}>
+    <main style={{
+      padding: 24, color: "white", minHeight: "100vh",
+      background: "var(--bg-primary)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+    }}>
       <style>{`
         @keyframes fadeSlideUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
         @keyframes spin { to { transform:rotate(360deg); } }
         .onboarding-card { animation: fadeSlideUp 0.25s ease; }
         input[type=time]::-webkit-calendar-picker-indicator { filter: invert(1); }
+        input:focus, textarea:focus { border-color: var(--border-focus) !important; }
       `}</style>
 
       <Card>
         <div className="onboarding-card">
           {/* Header */}
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
-            <div style={{ flex: 1 }}>
-              <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800 }}>Configure sua barbearia</h1>
-              <p style={{ margin: "6px 0 0", color: "rgba(255,255,255,0.70)", fontSize: 14 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, letterSpacing: "-0.025em" }}>
+                Configure sua barbearia
+              </h1>
+              <p style={{ margin: "6px 0 0", color: "var(--text-secondary)", fontSize: 14 }}>
                 Configure o essencial para começar a receber agendamentos.
               </p>
               <Progresso etapaAtual={etapaAtual} total={total} />
             </div>
-            <div style={{ minWidth: 220, padding: 14, borderRadius: 16, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              <div style={{ color: "rgba(255,255,255,0.60)", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>Sua barbearia</div>
-              <div style={{ marginTop: 6, fontWeight: 800 }}>{barbearia?.nome || "—"}</div>
-              <div style={{ marginTop: 4, fontSize: 12, color: "rgba(255,255,255,0.55)" }}>
+            <div style={{
+              minWidth: 200, padding: 14, borderRadius: "var(--radius-md)",
+              background: "var(--bg-card)", border: "1px solid var(--border-subtle)",
+            }}>
+              <div style={{
+                color: "var(--text-muted)", fontSize: 11, fontWeight: 700,
+                textTransform: "uppercase", letterSpacing: "0.06em",
+              }}>Sua barbearia</div>
+              <div style={{ marginTop: 6, fontWeight: 800, fontSize: 15 }}>{barbearia?.nome || "—"}</div>
+              <div style={{ marginTop: 4, fontSize: 12, color: "var(--text-muted)" }}>
                 {barbearia?.slug ? `/${barbearia.slug}` : "slug gerado ao concluir"}
               </div>
             </div>
@@ -246,29 +275,45 @@ export default function Onboarding() {
             {etapaChave === "horarios" && (
               <section>
                 <h2 style={{ marginTop: 0, marginBottom: 4, fontSize: 20, fontWeight: 800 }}>Horários de atendimento</h2>
-                <p style={{ marginTop: 0, color: "rgba(255,255,255,0.70)", fontSize: 14 }}>
+                <p style={{ marginTop: 0, color: "var(--text-secondary)", fontSize: 14 }}>
                   Selecione os dias e o horário de funcionamento.
                 </p>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginTop: 16 }}>
                   <div>
-                    <div style={{ fontWeight: 700, marginBottom: 10, fontSize: 14 }}>Dias da semana</div>
+                    <div style={{ fontWeight: 700, marginBottom: 10, fontSize: 14, color: "var(--text-secondary)" }}>Dias da semana</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                       {[["seg","Segunda"],["ter","Terça"],["qua","Quarta"],["qui","Quinta"],["sex","Sexta"],["sab","Sábado"],["dom","Domingo"]].map(([ch, label]) => (
-                        <label key={ch} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 12, background: horarios[ch] ? "rgba(253,54,110,0.12)" : "rgba(255,255,255,0.03)", border: horarios[ch] ? "1px solid rgba(253,54,110,0.35)" : "1px solid rgba(255,255,255,0.08)", cursor: "pointer", transition: "all 0.15s" }}>
-                          <span style={{ fontSize: 13, fontWeight: 700 }}>{label}</span>
-                          <input type="checkbox" checked={!!horarios[ch]} onChange={e => setHorarios(h => ({ ...h, [ch]: e.target.checked }))} style={{ accentColor: "#FD366E", width: 16, height: 16 }} />
+                        <label key={ch} style={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          padding: "10px 12px", borderRadius: "var(--radius-sm)",
+                          background: horarios[ch] ? "var(--accent-soft)" : "rgba(255,255,255,0.02)",
+                          border: horarios[ch] ? "1px solid var(--accent-border)" : "1px solid var(--border-subtle)",
+                          cursor: "pointer", transition: "all var(--duration-fast) var(--ease-out)",
+                        }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: horarios[ch] ? "var(--accent)" : "var(--text-secondary)" }}>{label}</span>
+                          <input type="checkbox" checked={!!horarios[ch]}
+                            onChange={e => setHorarios(h => ({ ...h, [ch]: e.target.checked }))}
+                            style={{ accentColor: "var(--accent)", width: 16, height: 16 }} />
                         </label>
                       ))}
                     </div>
                   </div>
                   <div>
                     <Campo label="Horário de início">
-                      <input type="time" value={horarios.inicio ?? ""} onChange={e => setHorarios(h => ({ ...h, inicio: e.target.value }))} style={inputStyle} />
+                      <input type="time" value={horarios.inicio ?? ""}
+                        onChange={e => setHorarios(h => ({ ...h, inicio: e.target.value }))}
+                        style={inputStyle} />
                     </Campo>
                     <Campo label="Horário de término">
-                      <input type="time" value={horarios.fim ?? ""} onChange={e => setHorarios(h => ({ ...h, fim: e.target.value }))} style={inputStyle} />
+                      <input type="time" value={horarios.fim ?? ""}
+                        onChange={e => setHorarios(h => ({ ...h, fim: e.target.value }))}
+                        style={inputStyle} />
                     </Campo>
-                    <div style={{ padding: 14, borderRadius: 14, background: "rgba(253,54,110,0.08)", border: "1px solid rgba(253,54,110,0.20)", fontSize: 13, color: "rgba(255,255,255,0.80)" }}>
+                    <div style={{
+                      padding: 14, borderRadius: "var(--radius-sm)",
+                      background: "var(--accent-soft)", border: "1px solid var(--accent-border)",
+                      fontSize: 13, color: "var(--text-secondary)",
+                    }}>
                       Os slots de horário serão gerados automaticamente entre o início e o término, com intervalos de 30 minutos.
                     </div>
                   </div>
@@ -280,48 +325,84 @@ export default function Onboarding() {
             {etapaChave === "servicos" && (
               <section>
                 <h2 style={{ marginTop: 0, marginBottom: 4, fontSize: 20, fontWeight: 800 }}>Serviços oferecidos</h2>
-                <p style={{ marginTop: 0, color: "rgba(255,255,255,0.70)", fontSize: 14 }}>Adicione os serviços da sua barbearia.</p>
+                <p style={{ marginTop: 0, color: "var(--text-secondary)", fontSize: 14 }}>Adicione os serviços da sua barbearia.</p>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginTop: 16 }}>
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                      <span style={{ fontWeight: 700 }}>Lista de serviços</span>
-                      <button type="button" onClick={() => { const id = `srv-${Date.now()}`; setServicos(s => [...s, { id, nome: "", duracaoMin: 30 }]); }} style={{ padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 13 }}>+ Adicionar</button>
+                      <span style={{ fontWeight: 700, color: "var(--text-secondary)" }}>Lista de serviços</span>
+                      <button type="button" onClick={() => {
+                        const id = `srv-${Date.now()}`;
+                        setServicos(s => [...s, { id, nome: "", duracaoMin: 30 }]);
+                      }} style={{
+                        padding: "8px 14px", borderRadius: "var(--radius-sm)",
+                        background: "rgba(255,255,255,0.04)", border: "1px solid var(--border-default)",
+                        color: "white", cursor: "pointer", fontWeight: 700, fontSize: 13,
+                        transition: "all var(--duration-fast) var(--ease-out)",
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+                      >+ Adicionar</button>
                     </div>
                     <div style={{ display: "grid", gap: 10 }}>
                       {servicos.length === 0 && (
-                        <div style={{ padding: 16, borderRadius: 12, background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.10)", textAlign: "center", color: "rgba(255,255,255,0.45)", fontSize: 14 }}>
-                          Nenhum serviço adicionado ainda
-                        </div>
+                        <div style={{
+                          padding: 16, borderRadius: "var(--radius-sm)",
+                          background: "rgba(255,255,255,0.01)",
+                          border: "1px dashed var(--border-default)",
+                          textAlign: "center", color: "var(--text-muted)", fontSize: 14,
+                        }}>Nenhum serviço adicionado ainda</div>
                       )}
                       {servicos.map(srv => (
-                        <div key={srv.id} style={{ padding: 14, borderRadius: 14, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                        <div key={srv.id} style={{
+                          padding: 14, borderRadius: "var(--radius-sm)",
+                          background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-subtle)",
+                        }}>
                           <Campo label="Nome">
-                            <input value={srv.nome} onChange={e => { const v = e.target.value; setServicos(l => l.map(x => x.id === srv.id ? { ...x, nome: v } : x)); }} placeholder="Ex: Corte simples" style={inputStyle} />
+                            <input value={srv.nome} onChange={e => {
+                              const v = e.target.value;
+                              setServicos(l => l.map(x => x.id === srv.id ? { ...x, nome: v } : x));
+                            }} placeholder="Ex: Corte simples" style={inputStyle} />
                           </Campo>
                           <Campo label="Duração (min)">
-                            <input type="number" min={5} step={5} value={srv.duracaoMin} onChange={e => { const v = Number(e.target.value); setServicos(l => l.map(x => x.id === srv.id ? { ...x, duracaoMin: v } : x)); }} style={inputStyle} />
+                            <input type="number" min={5} step={5} value={srv.duracaoMin}
+                              onChange={e => {
+                                const v = Number(e.target.value);
+                                setServicos(l => l.map(x => x.id === srv.id ? { ...x, duracaoMin: v } : x));
+                              }} style={inputStyle} />
                           </Campo>
-                          <button type="button" onClick={() => { setServicos(l => l.filter(x => x.id !== srv.id)); setPrecos(p => { const n = { ...p }; delete n[srv.id]; return n; }); }} style={{ padding: "8px 12px", borderRadius: 10, background: "rgba(255,80,80,0.10)", border: "1px solid rgba(255,80,80,0.20)", color: "#ff8080", cursor: "pointer", fontSize: 13 }}>
-                            Remover
-                          </button>
+                          <button type="button" onClick={() => {
+                            setServicos(l => l.filter(x => x.id !== srv.id));
+                            setPrecos(p => { const n = { ...p }; delete n[srv.id]; return n; });
+                          }} style={{
+                            padding: "8px 12px", borderRadius: "var(--radius-sm)",
+                            background: "var(--danger-soft)", border: "1px solid var(--danger-border)",
+                            color: "var(--danger)", cursor: "pointer", fontSize: 13, fontWeight: 600,
+                          }}>Remover</button>
                         </div>
                       ))}
                     </div>
                   </div>
                   <div>
-                    <div style={{ padding: 16, borderRadius: 14, background: "rgba(242,166,58,0.08)", border: "1px solid rgba(242,166,58,0.20)" }}>
-                      <div style={{ fontWeight: 700, marginBottom: 6 }}>Pré-visualização</div>
+                    <div style={{
+                      padding: 16, borderRadius: "var(--radius-sm)",
+                      background: "var(--gold-soft)", border: "1px solid var(--gold-border)",
+                    }}>
+                      <div style={{ fontWeight: 700, marginBottom: 6, color: "var(--gold)" }}>Pré-visualização</div>
                       {servicos.length === 0 ? (
-                        <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 13 }}>Adicione serviços para ver a pré-visualização</div>
+                        <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Adicione serviços para ver a pré-visualização</div>
                       ) : (
                         <div style={{ display: "grid", gap: 8 }}>
                           {servicos.map(srv => (
-                            <div key={srv.id} style={{ display: "flex", justifyContent: "space-between", padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,0.04)" }}>
+                            <div key={srv.id} style={{
+                              display: "flex", justifyContent: "space-between",
+                              padding: "10px 12px", borderRadius: "var(--radius-sm)",
+                              background: "rgba(255,255,255,0.03)",
+                            }}>
                               <div>
                                 <div style={{ fontWeight: 700, fontSize: 14 }}>{srv.nome || "—"}</div>
-                                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>{srv.duracaoMin} min</div>
+                                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{srv.duracaoMin} min</div>
                               </div>
-                              <div style={{ fontWeight: 700, color: "#FD366E" }}>
+                              <div style={{ fontWeight: 700, color: "var(--accent)" }}>
                                 {precos[srv.id] != null && precos[srv.id] !== "" ? `R$ ${precos[srv.id]}` : "—"}
                               </div>
                             </div>
@@ -338,30 +419,44 @@ export default function Onboarding() {
             {etapaChave === "precos" && (
               <section>
                 <h2 style={{ marginTop: 0, marginBottom: 4, fontSize: 20, fontWeight: 800 }}>Preços</h2>
-                <p style={{ marginTop: 0, color: "rgba(255,255,255,0.70)", fontSize: 14 }}>Defina o preço de cada serviço.</p>
+                <p style={{ marginTop: 0, color: "var(--text-secondary)", fontSize: 14 }}>Defina o preço de cada serviço.</p>
                 {servicos.length === 0 ? (
-                  <div style={{ marginTop: 16, padding: 20, borderRadius: 14, background: "rgba(255,255,255,0.03)", border: "1px dashed rgba(255,255,255,0.10)", textAlign: "center", color: "rgba(255,255,255,0.45)" }}>
-                    Nenhum serviço cadastrado. Volte à etapa anterior e adicione serviços.
-                  </div>
+                  <div style={{
+                    marginTop: 16, padding: 20, borderRadius: "var(--radius-sm)",
+                    background: "rgba(255,255,255,0.02)",
+                    border: "1px dashed var(--border-default)",
+                    textAlign: "center", color: "var(--text-muted)",
+                  }}>Nenhum serviço cadastrado. Volte à etapa anterior e adicione serviços.</div>
                 ) : (
                   <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
                     {servicos.map(srv => (
-                      <div key={srv.id} style={{ padding: 14, borderRadius: 14, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", display: "grid", gridTemplateColumns: "1fr 180px", gap: 12, alignItems: "center" }}>
+                      <div key={srv.id} style={{
+                        padding: 14, borderRadius: "var(--radius-sm)",
+                        background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-subtle)",
+                        display: "grid", gridTemplateColumns: "1fr 180px", gap: 12, alignItems: "center",
+                      }}>
                         <div>
                           <div style={{ fontWeight: 700 }}>{srv.nome}</div>
-                          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 2 }}>{srv.duracaoMin} min</div>
+                          <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{srv.duracaoMin} min</div>
                         </div>
                         <Campo label="Preço (R$)">
-                          <input type="number" min={0} step={0.5} value={precos[srv.id] ?? ""} onChange={e => { const v = e.target.value === "" ? "" : Number(e.target.value); setPrecos(p => ({ ...p, [srv.id]: v })); }} placeholder="0.00" style={inputStyle} />
+                          <input type="number" min={0} step={0.5}
+                            value={precos[srv.id] ?? ""}
+                            onChange={e => {
+                              const v = e.target.value === "" ? "" : Number(e.target.value);
+                              setPrecos(p => ({ ...p, [srv.id]: v }));
+                            }} placeholder="0.00" style={inputStyle} />
                         </Campo>
                       </div>
                     ))}
                   </div>
                 )}
                 {erroSalvar && (
-                  <div style={{ marginTop: 16, padding: "12px 16px", borderRadius: 12, background: "rgba(255,80,80,0.10)", border: "1px solid rgba(255,80,80,0.25)", color: "#ff8080", fontSize: 14 }}>
-                    ⚠️ {erroSalvar}
-                  </div>
+                  <div style={{
+                    marginTop: 16, padding: "12px 16px", borderRadius: "var(--radius-sm)",
+                    background: "var(--danger-soft)", border: "1px solid var(--danger-border)",
+                    color: "var(--danger)", fontSize: 14, fontWeight: 500,
+                  }}>⚠️ {erroSalvar}</div>
                 )}
               </section>
             )}
@@ -369,18 +464,24 @@ export default function Onboarding() {
 
           {/* Rodapé */}
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 24 }}>
-            <Botao variante="secundario" onClick={voltar} disabled={etapaIndex === 0} type="button">Voltar</Botao>
+            <Botao variante="secundario" onClick={voltar} disabled={etapaIndex === 0} type="button">
+              Voltar
+            </Botao>
             {etapaIndex === total - 1 ? (
               <Botao onClick={finalizar} disabled={salvando} type="button">
                 {salvando ? (
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ width: 16, height: 16, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "white", borderRadius: "50%", animation: "spin 0.6s linear infinite", display: "inline-block" }} />
+                    <span style={{
+                      width: 16, height: 16, border: "2px solid rgba(255,255,255,0.3)",
+                      borderTopColor: "white", borderRadius: "50%",
+                      animation: "spin 0.6s linear infinite", display: "inline-block",
+                    }} />
                     Salvando...
                   </span>
-                ) : "Concluir"}
+                ) : "Concluir ✓"}
               </Botao>
             ) : (
-              <Botao onClick={avancar} type="button">Continuar</Botao>
+              <Botao onClick={avancar} type="button">Continuar →</Botao>
             )}
           </div>
         </div>

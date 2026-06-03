@@ -1,7 +1,7 @@
 import { Navigate, Outlet, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useBarbearia } from "../../contextos/BarbeariaContexto";
-import { databases, COLLECTIONS, DB_ID, getDocument } from "../../lib/appwrite";
+import { databases, COLLECTIONS, DB_ID } from "../../lib/appwrite";
 
 export default function BarbeariaGuard() {
   const { barbearia, carregando: carregandoBarbearia } = useBarbearia();
@@ -21,19 +21,19 @@ export default function BarbeariaGuard() {
 
     async function checkSetup() {
       try {
-        // Config $id = barbearia.$id (determinístico definido no Onboarding)
-        // Busca diretamente pelo ID — O(1), sem precisar filtrar
-        const configDoc = await getDocument("configuracoes", barbearia.$id);
+        // Busca todas as configurações e filtra no cliente
+        // (Query.equal com Relationship field não é suportado)
+        const configRes = await databases.listDocuments(DB_ID, COLLECTIONS.configuracoes, []);
         if (cancelled) return;
+
+        const configDoc = (configRes?.documents ?? []).find(d =>
+          d.barbearia_id === barbearia.$id || d.barbearia_id?.$id === barbearia.$id
+        ) ?? null;
+
         setSetupComplete(configDoc?.onboarding_completo === true);
       } catch (e) {
-        if (e?.code === 404) {
-          // Config não existe ainda — onboarding não foi concluído
-          if (!cancelled) setSetupComplete(false);
-        } else if (e?.code !== 401) {
-          console.error("BarbeariaGuard erro:", e);
-          if (!cancelled) setSetupComplete(false);
-        }
+        if (e?.code !== 401) console.error("BarbeariaGuard erro:", e);
+        if (!cancelled) setSetupComplete(false);
       } finally {
         if (!cancelled) setSetupLoading(false);
       }

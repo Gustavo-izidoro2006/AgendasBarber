@@ -25,4 +25,3 @@ export function criarPayloadAgendamento({
     observacoes: observacoes ?? null,
   };
 }
-
