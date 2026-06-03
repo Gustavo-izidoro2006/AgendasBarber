@@ -334,6 +334,23 @@ export default function BarbeariaPublica() {
 
   return (
     <main style={{ minHeight: "100vh", background: "#0a0a0a", color: "white", padding: "24px 16px", animation: "fadeSlideUp 0.3s ease" }}>
+      <style>{`
+        @keyframes fadeSlideUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+        .publica-container {
+          display: grid;
+          grid-template-columns: 1fr 320px;
+          gap: 20px;
+          align-items: start;
+        }
+        @media (max-width: 768px) {
+          .publica-container {
+            grid-template-columns: 1fr;
+          }
+          .publica-aside {
+            position: static !important;
+          }
+        }
+      `}</style>
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
 
         {/* Header */}
@@ -351,7 +368,7 @@ export default function BarbeariaPublica() {
           </div>
         </header>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 20, alignItems: "start" }}>
+        <div className="publica-container">
 
           {/* Coluna esquerda */}
           <div style={{ display: "grid", gap: 24 }}>
@@ -430,7 +447,7 @@ export default function BarbeariaPublica() {
           </div>
 
           {/* Coluna direita — dados do cliente + resumo */}
-          <aside style={{ position: "sticky", top: 20, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 16, padding: 20, display: "grid", gap: 16 }}>
+          <aside className="publica-aside" style={{ position: "sticky", top: 20, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 16, padding: 20, display: "grid", gap: 16 }}>
 
             <div style={{ fontWeight: 700, fontSize: 16 }}>Seus dados</div>
 

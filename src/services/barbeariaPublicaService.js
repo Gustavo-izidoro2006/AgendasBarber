@@ -99,7 +99,8 @@ export async function buscarHorariosOcupados(barbeariaId, data) {
       .filter(
         (a) =>
           (a.barbearia_id === barbeariaId || a.barbearia_id?.$id === barbeariaId) &&
-          a.data_agendamento === data &&
+          a.data_agendamento &&
+          a.data_agendamento.substring(0, 10) === data &&
           a.status !== "cancelado"
       )
       .map((a) => a.horario);

@@ -57,12 +57,18 @@ async function deleteDocument(key, documentId) {
 /**
  * Upsert seguro por $id conhecido.
  * Quando você já tem o $id do documento, use esta função para criar ou atualizar.
- * Usa databases.upsertDocument (PUT) do SDK — idempotente por design.
- * REF: https://appwrite.io/docs/references/cloud/client-web/databases#upsertDocument
+ * Tenta criar o documento primeiro, e se já existir (erro 409), atualiza.
  */
 async function upsertById(key, documentId, payload) {
   if (!DB_ID) throw new Error("VITE_APPWRITE_DATABASE_ID não configurado");
-  return databases.upsertDocument(DB_ID, getCollectionId(key), documentId, payload);
+  try {
+    return await databases.createDocument(DB_ID, getCollectionId(key), documentId, payload);
+  } catch (e) {
+    if (e?.code === 409 || e?.status === 409) {
+      return await databases.updateDocument(DB_ID, getCollectionId(key), documentId, payload);
+    }
+    throw e;
+  }
 }
 
 /**
