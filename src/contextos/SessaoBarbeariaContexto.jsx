@@ -20,6 +20,7 @@ export function SessaoBarbeariaProvider({ children }) {
   const carregarSessao = useCallback(async () => {
     setCarregando(true);
     setErro(null);
+
     try {
       const user = await getAccount();
       setUsuario(user ?? null);
@@ -35,17 +36,24 @@ export function SessaoBarbeariaProvider({ children }) {
 
   const login = useCallback(async (email, senha) => {
     setErro(null);
+
     try {
-      try { await deleteSession("current"); } catch { /* ignora */ }
+      try {
+        await deleteSession("current");
+      } catch {
+        // ignora
+      }
+
       await createEmailSession(email, senha);
+
       const user = await carregarSessao();
       if (!user) throw new Error("Sessão não encontrada após login.");
 
-      // Decide destino: verifica onboarding_completo
       const respBarb = await databases.listDocuments(DB_ID, COLLECTIONS.barbearias, [
         Query.equal("user_id", user.$id),
         Query.limit(1),
       ]);
+
       const barb = respBarb?.documents?.[0] ?? null;
 
       if (!barb?.$id) {
@@ -53,12 +61,12 @@ export function SessaoBarbeariaProvider({ children }) {
         return;
       }
 
-      // Busca config usando getDocument via $id da barbearia não é possível diretamente,
-      // então listamos sem filtro e filtramos no cliente (Relationship limitation)
-      const cfgResp = await databases.listDocuments(DB_ID, COLLECTIONS.configuracoes, [Query.limit(100)]);
-      const cfg = (cfgResp?.documents ?? []).find(
-        d => d.barbearia_id === barb.$id || d.barbearia_id?.$id === barb.$id
-      );
+      const cfgResp = await databases.listDocuments(DB_ID, COLLECTIONS.configuracoes, [
+        Query.equal("barbearia_id", barb.$id),
+        Query.limit(1),
+      ]);
+
+      const cfg = cfgResp?.documents?.[0] ?? null;
 
       if (cfg?.onboarding_completo === true && barb.slug) {
         navigate(`/dashboard/${barb.slug}`);
@@ -74,6 +82,7 @@ export function SessaoBarbeariaProvider({ children }) {
 
   const logout = useCallback(async () => {
     setErro(null);
+
     try {
       await deleteSession("current");
       setUsuario(null);
@@ -87,13 +96,17 @@ export function SessaoBarbeariaProvider({ children }) {
 
   const cadastro = useCallback(async ({ email, senha, nomeBarbearia }) => {
     setErro(null);
+
     try {
       const created = await account.create(ID.unique(), email, senha, nomeBarbearia || undefined);
 
       if (DB_ID && nomeBarbearia) {
-        const slug = nomeBarbearia.toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/(^-|-$)/g, "") + "-" + created.$id.substring(0, 6);
+        const slug =
+          nomeBarbearia
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/(^-|-$)/g, "") + "-" + created.$id.substring(0, 6);
+
         await databases.createDocument(DB_ID, COLLECTIONS.barbearias, ID.unique(), {
           nome: nomeBarbearia,
           slug,
@@ -120,11 +133,18 @@ export function SessaoBarbeariaProvider({ children }) {
     carregarSessao();
   }, [carregarSessao]);
 
-  const valor = useMemo(() => ({
-    usuario, carregando, erro,
-    login, logout, cadastro,
-    recarregarSessao: carregarSessao,
-  }), [usuario, carregando, erro, login, logout, cadastro, carregarSessao]);
+  const valor = useMemo(
+    () => ({
+      usuario,
+      carregando,
+      erro,
+      login,
+      logout,
+      cadastro,
+      recarregarSessao: carregarSessao,
+    }),
+    [usuario, carregando, erro, login, logout, cadastro, carregarSessao]
+  );
 
   return <SessaoBarbeariaContexto.Provider value={valor}>{children}</SessaoBarbeariaContexto.Provider>;
 }

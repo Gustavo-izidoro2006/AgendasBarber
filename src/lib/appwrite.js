@@ -13,11 +13,12 @@ const databases = new Databases(client);
 const DB_ID = (import.meta.env.VITE_APPWRITE_DATABASE_ID || "").toString().trim();
 
 const COLLECTIONS = {
-  barbearias:    (import.meta.env.VITE_APPWRITE_BARBEARIAS_TABLE_ID    || "barbearias").toString().trim(),
-  servicos:      (import.meta.env.VITE_APPWRITE_SERVICOS_TABLE_ID      || "servicos").toString().trim(),
-  clientes:      (import.meta.env.VITE_APPWRITE_CLIENTES_TABLE_ID      || "clientes_barbearia").toString().trim(),
-  agendamentos:  (import.meta.env.VITE_APPWRITE_AGENDAMENTOS_TABLE_ID  || "agendamentos").toString().trim(),
-  horarios:      (import.meta.env.VITE_APPWRITE_HORARIOS_TABLE_ID      || "horarios_atendimento").toString().trim(),
+  // collection_id real da sua coleção de barbearias
+  barbearias: (import.meta.env.VITE_APPWRITE_BARBEARIAS_TABLE_ID || "clientes").toString().trim(),
+  servicos: (import.meta.env.VITE_APPWRITE_SERVICOS_TABLE_ID || "servicos").toString().trim(),
+  clientes: (import.meta.env.VITE_APPWRITE_CLIENTES_TABLE_ID || "clientes_barbearia").toString().trim(),
+  agendamentos: (import.meta.env.VITE_APPWRITE_AGENDAMENTOS_TABLE_ID || "agendamentos").toString().trim(),
+  horarios: (import.meta.env.VITE_APPWRITE_HORARIOS_TABLE_ID || "horarios_atendimento").toString().trim(),
   configuracoes: (import.meta.env.VITE_APPWRITE_CONFIGURACOES_TABLE_ID || "configuracoes_barbearia").toString().trim(),
 };
 
@@ -27,8 +28,7 @@ function getCollectionId(key) {
   return id;
 }
 
-// ─── CRUD wrappers ───────────────────────────────────────────────────────────
-
+// CRUD
 async function listCollection(key, queries = []) {
   if (!DB_ID) throw new Error("VITE_APPWRITE_DATABASE_ID não configurado");
   return databases.listDocuments(DB_ID, getCollectionId(key), queries);
@@ -55,10 +55,9 @@ async function deleteDocument(key, documentId) {
 }
 
 /**
- * Upsert por consulta.
- * Procura o primeiro documento que bate com os filtros.
- * Se achar, atualiza.
- * Se não achar, cria um novo.
+ * Upsert por filtro.
+ * Usa listDocuments para achar o registro certo e atualiza ele;
+ * se não existir, cria um novo com ID único.
  */
 async function upsertByQuery(key, queries, payload) {
   if (!DB_ID) throw new Error("VITE_APPWRITE_DATABASE_ID não configurado");
@@ -76,6 +75,7 @@ async function upsertByQuery(key, queries, payload) {
 
 /**
  * Upsert por ID conhecido.
+ * Só use quando o documentId realmente precisa ser fixo.
  */
 async function upsertById(key, documentId, payload) {
   if (!DB_ID) throw new Error("VITE_APPWRITE_DATABASE_ID não configurado");
@@ -89,9 +89,6 @@ async function upsertById(key, documentId, payload) {
   }
 }
 
-/**
- * Cria email/password session.
- */
 async function createEmailSession(email, password) {
   if (typeof account.createEmailPasswordSession === "function") {
     return account.createEmailPasswordSession(email, password);
@@ -99,9 +96,6 @@ async function createEmailSession(email, password) {
   return account.createEmailSession(email, password);
 }
 
-/**
- * Get current user. Retorna null para guests (401).
- */
 async function getAccount() {
   try {
     return await account.get();

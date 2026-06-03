@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSessaoBarbearia } from "../contextos/SessaoBarbeariaContexto";
 import { useBarbearia } from "../contextos/BarbeariaContexto";
-import { databases, COLLECTIONS, DB_ID, Query, ID, upsertByQuery } from "../lib/appwrite";
+import { databases, COLLECTIONS, DB_ID, Query, ID, upsertById } from "../lib/appwrite";
 
 function Progresso({ etapaAtual, total }) {
   const percent = Math.round((etapaAtual / total) * 100);
@@ -147,12 +147,20 @@ export default function Onboarding() {
       if (!barbeariaDoc?.$id) {
         const nome = user?.name ?? "Barbearia";
         const slug = nome.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+
         barbeariaDoc = await databases.createDocument(DB_ID, COLLECTIONS.barbearias, ID.unique(), {
           nome,
           slug,
           email: user?.email ?? "",
-          user_id: user.$id,
+          telefone: "",
+          endereco: "",
+          descricao: "",
+          imagem: "",
+          instagram: "",
+          whatsapp: "",
           status: "ativo",
+          criado_em: new Date().toISOString(),
+          user_id: user.$id,
         });
       }
 
@@ -160,19 +168,14 @@ export default function Onboarding() {
       const slug = barbeariaDoc.slug;
       if (!barbeariaId || !slug) throw new Error("Dados da barbearia não resolvidos.");
 
-      await upsertByQuery(
-        "configuracoes",
-        [
-          Query.equal("barbearia_id", barbeariaId),
-          Query.limit(1),
-        ],
-        {
-          barbearia_id: barbeariaId,
-          onboarding_completo: false,
-          intervalo_agendamento: 30,
-          antecedencia_minima: 1,
-        }
-      );
+      // 2) Configurações – ID determinístico (1-1 com barbearia)
+      const configId = `cfg_${barbeariaId}`;
+      await upsertById("configuracoes", configId, {
+        barbearia_id: barbeariaId,
+        onboarding_completo: false,
+        intervalo_agendamento: 30,
+        antecedencia_minima: 1,
+      });
 
       const mapDias = { dom: 0, seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, sab: 6 };
       const abertura = horarios?.inicio || "08:00";
@@ -182,67 +185,75 @@ export default function Onboarding() {
         .filter(([k, v]) => typeof v === "boolean" && v)
         .map(([k]) => k);
 
+      // 3) Horários – busca todos e filtra client-side (Relationship não é indexado)
+      const allHorarios = await databases.listDocuments(DB_ID, COLLECTIONS.horarios, [
+        Query.limit(500),
+      ]);
+      const meusHorarios = allHorarios.documents.filter(h => {
+        const hBarbId = typeof h.barbearia_id === "string" ? h.barbearia_id : h.barbearia_id?.$id;
+        return hBarbId === barbeariaId;
+      });
+
       for (const ch of diasSel) {
         const dia_semana = mapDias[ch];
         if (dia_semana === undefined) continue;
 
-        await upsertByQuery(
-          "horarios",
-          [
-            Query.equal("barbearia_id", barbeariaId),
-            Query.equal("dia_semana", dia_semana),
-            Query.limit(1),
-          ],
-          {
-            barbearia_id: barbeariaId,
-            dia_semana,
-            abertura,
-            fechamento,
-            ativo: true,
-          }
-        );
+        const existingHor = meusHorarios.find(h => h.dia_semana === dia_semana) ?? null;
+        const dataHorario = {
+          barbearia_id: barbeariaId,
+          dia_semana,
+          abertura,
+          fechamento,
+          ativo: "true",
+        };
+        if (existingHor) {
+          await databases.updateDocument(DB_ID, COLLECTIONS.horarios, existingHor.$id, dataHorario);
+        } else {
+          await databases.createDocument(DB_ID, COLLECTIONS.horarios, ID.unique(), dataHorario);
+        }
       }
 
-      for (const srv of servicos) {
-        if (!srv.nome?.trim()) continue;
+      // 4) Serviços – busca todos e filtra client-side (Relationship não é indexado)
+      const allServicos = await databases.listDocuments(DB_ID, COLLECTIONS.servicos, [
+        Query.limit(500),
+      ]);
+      const meusServicos = allServicos.documents.filter(s => {
+        const sBarbId = typeof s.barbearia_id === "string" ? s.barbearia_id : s.barbearia_id?.$id;
+        return sBarbId === barbeariaId;
+      });
 
-        const nome = srv.nome.trim();
+      for (const srv of servicos) {
+        const nome = srv.nome?.trim();
+        if (!nome) continue;
+
         const duracao = String(srv.duracaoMin ?? 30);
         const valorRaw = precos?.[srv.id];
         const valor = valorRaw != null && valorRaw !== "" ? String(valorRaw) : "0";
 
-        await upsertByQuery(
-          "servicos",
-          [
-            Query.equal("barbearia_id", barbeariaId),
-            Query.equal("nome", nome),
-            Query.limit(1),
-          ],
-          {
-            barbearia_id: barbeariaId,
-            nome,
-            descricao: srv.descricao?.trim() || " ",
-            valor,
-            duracao,
-            status: "ativo",
-            criado_em: new Date().toISOString(),
-          }
-        );
+        const existingServ = meusServicos.find(s => s.nome === nome) ?? null;
+        const dataServico = {
+          barbearia_id: barbeariaId,
+          nome,
+          descricao: srv.descricao?.trim() || " ",
+          valor,
+          duracao,
+          status: "ativo",
+          criado_em: new Date().toISOString(),
+        };
+        if (existingServ) {
+          await databases.updateDocument(DB_ID, COLLECTIONS.servicos, existingServ.$id, dataServico);
+        } else {
+          await databases.createDocument(DB_ID, COLLECTIONS.servicos, ID.unique(), dataServico);
+        }
       }
 
-      await upsertByQuery(
-        "configuracoes",
-        [
-          Query.equal("barbearia_id", barbeariaId),
-          Query.limit(1),
-        ],
-        {
-          barbearia_id: barbeariaId,
-          onboarding_completo: true,
-          intervalo_agendamento: 30,
-          antecedencia_minima: 1,
-        }
-      );
+      // 5) Marca onboarding como completo (mesmo ID determinístico)
+      await upsertById("configuracoes", configId, {
+        barbearia_id: barbeariaId,
+        onboarding_completo: true,
+        intervalo_agendamento: 30,
+        antecedencia_minima: 1,
+      });
 
       setBarbearia(barbeariaDoc);
       navigate(`/dashboard/${slug}`, { replace: true });
@@ -273,24 +284,9 @@ export default function Onboarding() {
               </p>
               <Progresso etapaAtual={etapaAtual} total={total} />
             </div>
-            <div
-              style={{
-                minWidth: 220,
-                padding: 14,
-                borderRadius: 16,
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.08)",
-              }}
-            >
-              <div
-                style={{
-                  color: "rgba(255,255,255,0.60)",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                }}
-              >
+
+            <div style={{ minWidth: 220, padding: 14, borderRadius: 16, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <div style={{ color: "rgba(255,255,255,0.60)", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                 Sua barbearia
               </div>
               <div style={{ marginTop: 6, fontWeight: 800 }}>{barbearia?.nome || "—"}</div>
@@ -307,6 +303,7 @@ export default function Onboarding() {
                 <p style={{ marginTop: 0, color: "rgba(255,255,255,0.70)", fontSize: 14 }}>
                   Selecione os dias e o horário de funcionamento.
                 </p>
+
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginTop: 16 }}>
                   <div>
                     <div style={{ fontWeight: 700, marginBottom: 10, fontSize: 14 }}>Dias da semana</div>
@@ -329,9 +326,7 @@ export default function Onboarding() {
                             padding: "10px 12px",
                             borderRadius: 12,
                             background: horarios[ch] ? "rgba(253,54,110,0.12)" : "rgba(255,255,255,0.03)",
-                            border: horarios[ch]
-                              ? "1px solid rgba(253,54,110,0.35)"
-                              : "1px solid rgba(255,255,255,0.08)",
+                            border: horarios[ch] ? "1px solid rgba(253,54,110,0.35)" : "1px solid rgba(255,255,255,0.08)",
                             cursor: "pointer",
                             transition: "all 0.15s",
                           }}
@@ -347,6 +342,7 @@ export default function Onboarding() {
                       ))}
                     </div>
                   </div>
+
                   <div>
                     <Campo label="Horário de início">
                       <input
@@ -356,6 +352,7 @@ export default function Onboarding() {
                         style={inputStyle}
                       />
                     </Campo>
+
                     <Campo label="Horário de término">
                       <input
                         type="time"
@@ -364,16 +361,8 @@ export default function Onboarding() {
                         style={inputStyle}
                       />
                     </Campo>
-                    <div
-                      style={{
-                        padding: 14,
-                        borderRadius: 14,
-                        background: "rgba(253,54,110,0.08)",
-                        border: "1px solid rgba(253,54,110,0.20)",
-                        fontSize: 13,
-                        color: "rgba(255,255,255,0.80)",
-                      }}
-                    >
+
+                    <div style={{ padding: 14, borderRadius: 14, background: "rgba(253,54,110,0.08)", border: "1px solid rgba(253,54,110,0.20)", fontSize: 13, color: "rgba(255,255,255,0.80)" }}>
                       Os slots de horário serão gerados automaticamente entre o início e o término, com intervalos de 30 minutos.
                     </div>
                   </div>
@@ -387,6 +376,7 @@ export default function Onboarding() {
                 <p style={{ marginTop: 0, color: "rgba(255,255,255,0.70)", fontSize: 14 }}>
                   Adicione os serviços da sua barbearia.
                 </p>
+
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginTop: 16 }}>
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -397,46 +387,21 @@ export default function Onboarding() {
                           const id = `srv-${Date.now()}`;
                           setServicos((s) => [...s, { id, nome: "", duracaoMin: 30 }]);
                         }}
-                        style={{
-                          padding: "8px 14px",
-                          borderRadius: 10,
-                          background: "rgba(255,255,255,0.06)",
-                          border: "1px solid rgba(255,255,255,0.10)",
-                          color: "white",
-                          cursor: "pointer",
-                          fontWeight: 700,
-                          fontSize: 13,
-                        }}
+                        style={{ padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 13 }}
                       >
                         + Adicionar
                       </button>
                     </div>
+
                     <div style={{ display: "grid", gap: 10 }}>
                       {servicos.length === 0 && (
-                        <div
-                          style={{
-                            padding: 16,
-                            borderRadius: 12,
-                            background: "rgba(255,255,255,0.02)",
-                            border: "1px dashed rgba(255,255,255,0.10)",
-                            textAlign: "center",
-                            color: "rgba(255,255,255,0.45)",
-                            fontSize: 14,
-                          }}
-                        >
+                        <div style={{ padding: 16, borderRadius: 12, background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.10)", textAlign: "center", color: "rgba(255,255,255,0.45)", fontSize: 14 }}>
                           Nenhum serviço adicionado ainda
                         </div>
                       )}
+
                       {servicos.map((srv) => (
-                        <div
-                          key={srv.id}
-                          style={{
-                            padding: 14,
-                            borderRadius: 14,
-                            background: "rgba(255,255,255,0.03)",
-                            border: "1px solid rgba(255,255,255,0.08)",
-                          }}
-                        >
+                        <div key={srv.id} style={{ padding: 14, borderRadius: 14, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
                           <Campo label="Nome">
                             <input
                               value={srv.nome}
@@ -448,6 +413,7 @@ export default function Onboarding() {
                               style={inputStyle}
                             />
                           </Campo>
+
                           <Campo label="Duração (min)">
                             <input
                               type="number"
@@ -461,6 +427,7 @@ export default function Onboarding() {
                               style={inputStyle}
                             />
                           </Campo>
+
                           <button
                             type="button"
                             onClick={() => {
@@ -471,15 +438,7 @@ export default function Onboarding() {
                                 return n;
                               });
                             }}
-                            style={{
-                              padding: "8px 12px",
-                              borderRadius: 10,
-                              background: "rgba(255,80,80,0.10)",
-                              border: "1px solid rgba(255,80,80,0.20)",
-                              color: "#ff8080",
-                              cursor: "pointer",
-                              fontSize: 13,
-                            }}
+                            style={{ padding: "8px 12px", borderRadius: 10, background: "rgba(255,80,80,0.10)", border: "1px solid rgba(255,80,80,0.20)", color: "#ff8080", cursor: "pointer", fontSize: 13 }}
                           >
                             Remover
                           </button>
@@ -487,33 +446,16 @@ export default function Onboarding() {
                       ))}
                     </div>
                   </div>
+
                   <div>
-                    <div
-                      style={{
-                        padding: 16,
-                        borderRadius: 14,
-                        background: "rgba(242,166,58,0.08)",
-                        border: "1px solid rgba(242,166,58,0.20)",
-                      }}
-                    >
+                    <div style={{ padding: 16, borderRadius: 14, background: "rgba(242,166,58,0.08)", border: "1px solid rgba(242,166,58,0.20)" }}>
                       <div style={{ fontWeight: 700, marginBottom: 6 }}>Pré-visualização</div>
                       {servicos.length === 0 ? (
-                        <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 13 }}>
-                          Adicione serviços para ver a pré-visualização
-                        </div>
+                        <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 13 }}>Adicione serviços para ver a pré-visualização</div>
                       ) : (
                         <div style={{ display: "grid", gap: 8 }}>
                           {servicos.map((srv) => (
-                            <div
-                              key={srv.id}
-                              style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                padding: "10px 12px",
-                                borderRadius: 10,
-                                background: "rgba(255,255,255,0.04)",
-                              }}
-                            >
+                            <div key={srv.id} style={{ display: "flex", justifyContent: "space-between", padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,0.04)" }}>
                               <div>
                                 <div style={{ fontWeight: 700, fontSize: 14 }}>{srv.nome || "—"}</div>
                                 <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>{srv.duracaoMin} min</div>
@@ -537,41 +479,18 @@ export default function Onboarding() {
                 <p style={{ marginTop: 0, color: "rgba(255,255,255,0.70)", fontSize: 14 }}>
                   Defina o preço de cada serviço.
                 </p>
+
                 {servicos.length === 0 ? (
-                  <div
-                    style={{
-                      marginTop: 16,
-                      padding: 20,
-                      borderRadius: 14,
-                      background: "rgba(255,255,255,0.03)",
-                      border: "1px dashed rgba(255,255,255,0.10)",
-                      textAlign: "center",
-                      color: "rgba(255,255,255,0.45)",
-                    }}
-                  >
+                  <div style={{ marginTop: 16, padding: 20, borderRadius: 14, background: "rgba(255,255,255,0.03)", border: "1px dashed rgba(255,255,255,0.10)", textAlign: "center", color: "rgba(255,255,255,0.45)" }}>
                     Nenhum serviço cadastrado. Volte à etapa anterior e adicione serviços.
                   </div>
                 ) : (
                   <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
                     {servicos.map((srv) => (
-                      <div
-                        key={srv.id}
-                        style={{
-                          padding: 14,
-                          borderRadius: 14,
-                          background: "rgba(255,255,255,0.03)",
-                          border: "1px solid rgba(255,255,255,0.08)",
-                          display: "grid",
-                          gridTemplateColumns: "1fr 180px",
-                          gap: 12,
-                          alignItems: "center",
-                        }}
-                      >
+                      <div key={srv.id} style={{ padding: 14, borderRadius: 14, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", display: "grid", gridTemplateColumns: "1fr 180px", gap: 12, alignItems: "center" }}>
                         <div>
                           <div style={{ fontWeight: 700 }}>{srv.nome}</div>
-                          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 2 }}>
-                            {srv.duracaoMin} min
-                          </div>
+                          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 2 }}>{srv.duracaoMin} min</div>
                         </div>
                         <Campo label="Preço (R$)">
                           <input
@@ -593,17 +512,7 @@ export default function Onboarding() {
                 )}
 
                 {erroSalvar && (
-                  <div
-                    style={{
-                      marginTop: 16,
-                      padding: "12px 16px",
-                      borderRadius: 12,
-                      background: "rgba(255,80,80,0.10)",
-                      border: "1px solid rgba(255,80,80,0.25)",
-                      color: "#ff8080",
-                      fontSize: 14,
-                    }}
-                  >
+                  <div style={{ marginTop: 16, padding: "12px 16px", borderRadius: 12, background: "rgba(255,80,80,0.10)", border: "1px solid rgba(255,80,80,0.25)", color: "#ff8080", fontSize: 14 }}>
                     ⚠️ {erroSalvar}
                   </div>
                 )}
