@@ -49,24 +49,28 @@ export function SessaoBarbeariaProvider({ children }) {
       const user = await carregarSessao();
       if (!user) throw new Error("Sessão não encontrada após login.");
 
+      // Busca barbearia client-side (user_id é Relationship)
       const respBarb = await databases.listDocuments(DB_ID, COLLECTIONS.barbearias, [
-        Query.equal("user_id", user.$id),
-        Query.limit(1),
+        Query.limit(500),
       ]);
-
-      const barb = respBarb?.documents?.[0] ?? null;
+      const barb = respBarb?.documents?.find(d => {
+        const dUserId = typeof d.user_id === "string" ? d.user_id : d.user_id?.$id;
+        return dUserId === user.$id;
+      }) ?? null;
 
       if (!barb?.$id) {
         navigate("/onboarding");
         return;
       }
 
+      // Busca configurações client-side (barbearia_id é Relationship)
       const cfgResp = await databases.listDocuments(DB_ID, COLLECTIONS.configuracoes, [
-        Query.equal("barbearia_id", barb.$id),
-        Query.limit(1),
+        Query.limit(500),
       ]);
-
-      const cfg = cfgResp?.documents?.[0] ?? null;
+      const cfg = cfgResp?.documents?.find(d => {
+        const dBarbId = typeof d.barbearia_id === "string" ? d.barbearia_id : d.barbearia_id?.$id;
+        return dBarbId === barb.$id;
+      }) ?? null;
 
       if (cfg?.onboarding_completo === true && barb.slug) {
         navigate(`/dashboard/${barb.slug}`);

@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSessaoBarbearia } from "../contextos/SessaoBarbeariaContexto";
 import { useBarbearia } from "../contextos/BarbeariaContexto";
-import { databases, COLLECTIONS, DB_ID, Query, ID, upsertById } from "../lib/appwrite";
+import { databases, COLLECTIONS, DB_ID, Query, ID } from "../lib/appwrite";
 
 function Progresso({ etapaAtual, total }) {
   const percent = Math.round((etapaAtual / total) * 100);
@@ -168,14 +168,25 @@ export default function Onboarding() {
       const slug = barbeariaDoc.slug;
       if (!barbeariaId || !slug) throw new Error("Dados da barbearia não resolvidos.");
 
-      // 2) Configurações – ID determinístico (1-1 com barbearia)
-      const configId = `cfg_${barbeariaId}`;
-      await upsertById("configuracoes", configId, {
+      // 2) Configurações – busca client-side e upsert
+      const allConfigs = await databases.listDocuments(DB_ID, COLLECTIONS.configuracoes, [
+        Query.limit(500),
+      ]);
+      const existingConfig = allConfigs.documents.find(c => {
+        const cBarbId = typeof c.barbearia_id === "string" ? c.barbearia_id : c.barbearia_id?.$id;
+        return cBarbId === barbeariaId;
+      }) ?? null;
+      const configData = {
         barbearia_id: barbeariaId,
         onboarding_completo: false,
         intervalo_agendamento: 30,
         antecedencia_minima: 1,
-      });
+      };
+      if (existingConfig) {
+        await databases.updateDocument(DB_ID, COLLECTIONS.configuracoes, existingConfig.$id, configData);
+      } else {
+        await databases.createDocument(DB_ID, COLLECTIONS.configuracoes, ID.unique(), configData);
+      }
 
       const mapDias = { dom: 0, seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, sab: 6 };
       const abertura = horarios?.inicio || "08:00";
@@ -247,13 +258,22 @@ export default function Onboarding() {
         }
       }
 
-      // 5) Marca onboarding como completo (mesmo ID determinístico)
-      await upsertById("configuracoes", configId, {
-        barbearia_id: barbeariaId,
-        onboarding_completo: true,
-        intervalo_agendamento: 30,
-        antecedencia_minima: 1,
-      });
+      // 5) Marca onboarding como completo – busca client-side novamente
+      const allConfigs2 = await databases.listDocuments(DB_ID, COLLECTIONS.configuracoes, [
+        Query.limit(500),
+      ]);
+      const cfgFinal = allConfigs2.documents.find(c => {
+        const cBarbId = typeof c.barbearia_id === "string" ? c.barbearia_id : c.barbearia_id?.$id;
+        return cBarbId === barbeariaId;
+      }) ?? null;
+      if (cfgFinal) {
+        await databases.updateDocument(DB_ID, COLLECTIONS.configuracoes, cfgFinal.$id, {
+          barbearia_id: barbeariaId,
+          onboarding_completo: true,
+          intervalo_agendamento: 30,
+          antecedencia_minima: 1,
+        });
+      }
 
       setBarbearia(barbeariaDoc);
       navigate(`/dashboard/${slug}`, { replace: true });
