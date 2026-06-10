@@ -1,0 +1,17 @@
+# Regras SPA para servir React (index.html em rotas internas)
+# Coloque este arquivo como .htaccess na pasta do build do React (onde fica o index.html)
+
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Se existir arquivo/pasta real (assets), servir normalmente
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Caso contrário, devolve index.html (SPA)
+  RewriteRule ^ index.html [L]
+</IfModule>
+

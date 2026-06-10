@@ -1,0 +1,21 @@
+Options -Indexes
+DirectoryIndex frontend/dist/index.html
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /Barbeariav2/
+
+  # Se é arquivo ou diretório real, serve normalmente
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Deixa backend/ passarem sem modificação
+  RewriteRule ^backend(/.*)?$ - [L]
+  
+  # Reescreve assets para o caminho real
+  RewriteRule ^assets/(.+)$ frontend/dist/assets/$1 [L]
+
+  # Todas as outras rotas SPA servem o index.html do build
+  RewriteRule ^.*$ frontend/dist/index.html [L]
+</IfModule>
