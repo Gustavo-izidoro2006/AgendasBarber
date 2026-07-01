@@ -407,11 +407,60 @@ export default function BarbeariaPublica() {
           ) : (
             <div style={{ width: 72, height: 72, borderRadius: 16, background: "var(--accent-soft)", border: "1px solid var(--accent-border)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32 }}>✂️</div>
           )}
-          <div>
+          <div style={{ minWidth: 0 }}>
             <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: "-0.02em" }}>{nomeBarbearia}</h1>
             <p style={{ margin: "6px 0 0", fontSize: 14, color: "var(--text-secondary)" }}>
-              Escolha serviço, data e horário para agendar online de forma rápida e prática.
+              {barbearia?.descricao?.trim()
+                ? barbearia.descricao
+                : "Escolha serviço, data e horário para agendar online de forma rápida e prática."}
             </p>
+
+            {/* Contato e endereço cadastrados em Configurações */}
+            {(barbearia?.endereco || barbearia?.telefone || barbearia?.whatsapp || barbearia?.instagram) && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+                {barbearia?.endereco && (
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(barbearia.endereco)}`}
+                    target="_blank" rel="noopener noreferrer"
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 13px", borderRadius: 999, background: "var(--bg-card)", border: "1px solid var(--border-default)", fontSize: 12.5, color: "var(--text-secondary)", textDecoration: "none", transition: "all var(--duration-fast)" }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--border-hover)"; e.currentTarget.style.color = "white"; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border-default)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+                  >
+                    📍 {barbearia.endereco}
+                  </a>
+                )}
+                {barbearia?.telefone && (
+                  <a
+                    href={`tel:${barbearia.telefone.replace(/\D/g, "")}`}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 13px", borderRadius: 999, background: "var(--bg-card)", border: "1px solid var(--border-default)", fontSize: 12.5, color: "var(--text-secondary)", textDecoration: "none", transition: "all var(--duration-fast)" }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--border-hover)"; e.currentTarget.style.color = "white"; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border-default)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+                  >
+                    📞 {barbearia.telefone}
+                  </a>
+                )}
+                {barbearia?.whatsapp && (
+                  <a
+                    href={`https://wa.me/55${barbearia.whatsapp.replace(/\D/g, "")}`}
+                    target="_blank" rel="noopener noreferrer"
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 13px", borderRadius: 999, background: "var(--success-soft)", border: "1px solid var(--success-border)", fontSize: 12.5, color: "var(--success)", textDecoration: "none", fontWeight: 600 }}
+                  >
+                    💬 WhatsApp
+                  </a>
+                )}
+                {barbearia?.instagram && (
+                  <a
+                    href={`https://instagram.com/${barbearia.instagram.replace("@", "")}`}
+                    target="_blank" rel="noopener noreferrer"
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 13px", borderRadius: 999, background: "var(--bg-card)", border: "1px solid var(--border-default)", fontSize: 12.5, color: "var(--text-secondary)", textDecoration: "none", transition: "all var(--duration-fast)" }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--border-hover)"; e.currentTarget.style.color = "white"; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border-default)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+                  >
+                    @{barbearia.instagram.replace("@", "")}
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         </header>
 

@@ -220,3 +220,78 @@ a:hover { color: var(--accent-hover); }
   .bp-grid  { grid-template-columns: 1fr; gap: 24px; }
   .bp-aside { position: static; padding: 16px; order: -1; min-width: 0; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   PAINEL — Barbershop Heritage
+   Couro, latão, navalha. Serif para números e títulos; a base
+   escura ganha um leve halo quente em vez de cinza chapado.
+   ═══════════════════════════════════════════════════════════════ */
+
+.db-shell {
+  min-height: 100vh;
+  color: var(--text-primary);
+  background:
+    radial-gradient(1100px 560px at 12% -8%, rgba(232,40,74,0.055), transparent 60%),
+    radial-gradient(900px 520px at 102% 4%, rgba(212,168,67,0.05), transparent 55%),
+    var(--bg-primary);
+}
+
+.db-font-serif { font-family: 'Playfair Display', Georgia, serif; }
+
+/* ── Sidebar ── */
+.db-sidebar { border-radius: var(--radius-xl); background: linear-gradient(165deg, rgba(255,255,255,0.035), rgba(255,255,255,0.008)), var(--bg-secondary); border: 1px solid var(--border-default); box-shadow: var(--shadow-lg); overflow: hidden; }
+.db-sidebar-bar { height: 3px; background: linear-gradient(90deg, var(--accent), var(--gold)); }
+.db-brand { display: flex; align-items: center; gap: 13px; padding: 22px 20px; border-bottom: 1px solid var(--border-subtle); }
+.db-brand-badge { width: 46px; height: 46px; border-radius: 13px; flex-shrink: 0; background: radial-gradient(circle at 30% 22%, #ff5c7a, var(--accent) 55%, #a3172f 100%); display: flex; align-items: center; justify-content: center; font-size: 19px; color: white; box-shadow: 0 4px 14px rgba(232,40,74,0.4), inset 0 1px 0 rgba(255,255,255,0.25); }
+.db-brand-eyebrow { font-size: 9.5px; color: var(--gold); font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; }
+.db-brand-name { font-size: 16px; font-weight: 700; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.db-nav { padding: 16px 14px; display: grid; gap: 3px; }
+.db-nav-caption { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-faint); margin: 2px 0 8px 6px; }
+.db-nav-item { position: relative; width: 100%; text-align: left; padding: 11px 14px 11px 20px; border-radius: 10px; border: 1px solid transparent; background: transparent; color: var(--text-secondary); cursor: pointer; font-weight: 500; font-size: 14px; display: flex; align-items: center; gap: 11px; font-family: inherit; transition: all var(--duration-fast) var(--ease-out); }
+.db-nav-item:hover { background: var(--bg-elevated); color: white; }
+.db-nav-item.active { background: linear-gradient(90deg, var(--accent-soft), rgba(232,40,74,0.015)); color: white; font-weight: 700; }
+.db-nav-item.active::before { content: ""; position: absolute; left: 0; top: 7px; bottom: 7px; width: 3px; border-radius: 3px; background: linear-gradient(180deg, var(--accent), var(--gold)); }
+.db-nav-icon { font-size: 13px; width: 16px; text-align: center; opacity: 0.6; }
+.db-nav-item.active .db-nav-icon { opacity: 1; }
+
+/* ── Header ── */
+.db-header { padding: 22px 26px; border-radius: var(--radius-xl); background: linear-gradient(160deg, rgba(255,255,255,0.035), rgba(255,255,255,0.006)); border: 1px solid var(--border-default); box-shadow: var(--shadow-sm); }
+.db-header-eyebrow { font-size: 10px; color: var(--gold); font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; margin-bottom: 8px; display: inline-flex; align-items: center; gap: 8px; }
+.db-header-eyebrow::before { content: ""; width: 16px; height: 1px; background: var(--gold); display: inline-block; }
+.db-header-title { font-size: 25px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+
+/* ── Stat cards ── */
+.db-stat { padding: 22px; border-radius: var(--radius-lg); position: relative; overflow: hidden; transition: all var(--duration-fast) var(--ease-out); border: 1px solid var(--border-default); background: var(--bg-card); }
+.db-stat::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--stat-color, var(--border-hover)); opacity: 0.75; }
+.db-stat:hover { transform: translateY(-3px); border-color: var(--border-hover); box-shadow: var(--shadow-md); }
+.db-stat-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; color: var(--text-secondary); display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.db-stat-value { font-size: 33px; font-weight: 700; line-height: 1; color: var(--stat-color, white); }
+
+/* ── Faturamento — placa de latão ── */
+.db-plaque { padding: 28px 30px; border-radius: var(--radius-xl); background: linear-gradient(135deg, rgba(212,168,67,0.10), rgba(212,168,67,0.02)); border: 1px solid var(--gold-border); position: relative; box-shadow: 0 10px 34px rgba(212,168,67,0.06); display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.db-plaque::after { content: ""; position: absolute; inset: 6px; border: 1px solid rgba(212,168,67,0.16); border-radius: calc(var(--radius-xl) - 6px); pointer-events: none; }
+.db-plaque-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-secondary); margin-bottom: 8px; }
+.db-plaque-value { font-size: 38px; font-weight: 700; color: var(--gold); letter-spacing: -0.02em; line-height: 1.1; }
+
+/* ── Cartões de conteúdo (tabelas, listas) ── */
+.db-card { border-radius: var(--radius-xl); background: rgba(13,13,16,0.95); border: 1px solid var(--border-default); overflow: hidden; box-shadow: var(--shadow-sm); }
+.db-card-head { padding: 20px 26px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.db-card-title { font-size: 17px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+
+/* ── Calendário ── */
+.db-cal-nav { display: flex; align-items: center; gap: 10px; }
+.db-cal-nav-btn { width: 32px; height: 32px; border-radius: 9px; border: 1px solid var(--border-default); background: rgba(255,255,255,0.02); color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all var(--duration-fast); }
+.db-cal-nav-btn:hover { border-color: var(--gold-border); background: var(--gold-soft); color: var(--gold); }
+.db-cal-today-btn { padding: 7px 14px; border-radius: 9px; border: 1px solid var(--border-default); background: rgba(255,255,255,0.02); color: var(--text-secondary); cursor: pointer; font-size: 12.5px; font-weight: 700; transition: all var(--duration-fast); }
+.db-cal-today-btn:hover { border-color: var(--accent-border); background: var(--accent-soft); color: var(--accent); }
+.db-cal-weekday { text-align: center; font-weight: 700; font-size: 10.5px; color: var(--gold); padding-bottom: 10px; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.85; }
+.db-cal-day { aspect-ratio: 1; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 14.5px; font-weight: 600; border: 1px solid var(--border-default); background: rgba(255,255,255,0.015); color: var(--text-secondary); cursor: pointer; transition: all var(--duration-fast); position: relative; }
+.db-cal-day:hover { border-color: var(--border-hover); background: var(--bg-elevated); color: white; }
+.db-cal-day.has-agenda { border-color: var(--gold-border); background: var(--gold-soft); color: var(--gold); font-weight: 800; }
+.db-cal-day.is-today { box-shadow: 0 0 0 2px var(--accent); color: white; }
+.db-cal-dot { position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%); width: 5px; height: 5px; border-radius: 50%; background: var(--gold); }
+
+@media (max-width: 900px) {
+  .db-plaque { flex-direction: column; align-items: flex-start; }
+}

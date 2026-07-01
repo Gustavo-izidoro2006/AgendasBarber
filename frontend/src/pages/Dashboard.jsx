@@ -93,37 +93,19 @@ function Modal({ aberto, titulo, onFechar, children }) {
 
 function StatCard({ label, value, color, icon, variant }) {
   const variants = {
-    default: { bg: "var(--bg-card)", border: "var(--border-default)", text: "white" },
-    gold: { bg: "var(--gold-soft)", border: "var(--gold-border)", text: "var(--gold)" },
-    accent: { bg: "var(--accent-soft)", border: "var(--accent-border)", text: "var(--accent)" },
-    success: { bg: "var(--success-soft)", border: "var(--success-border)", text: "var(--success)" },
+    default: "var(--border-hover)",
+    gold: "var(--gold)",
+    accent: "var(--accent)",
+    success: "var(--success)",
   };
-  const v = variants[variant] || variants.default;
+  const stripe = color || variants[variant] || variants.default;
   return (
-    <div style={{
-      padding: "22px", borderRadius: 16,
-      background: v.bg, border: `1px solid ${v.border}`,
-      boxShadow: "var(--shadow-sm)",
-      transition: "all var(--duration-fast) var(--ease-out)",
-    }}
-    onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.borderColor = "var(--border-hover)"; }}
-    onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.borderColor = v.border; }}
-    >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <div style={{
-          fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em",
-          color: "var(--text-secondary)",
-        }}>
-          {label}
-        </div>
-        {icon && <span style={{ fontSize: 16, color: color || v.text, opacity: 0.8 }}>{icon}</span>}
+    <div className="db-stat" style={{ "--stat-color": stripe }}>
+      <div className="db-stat-label">
+        {label}
+        {icon && <span style={{ fontSize: 16, opacity: 0.85 }}>{icon}</span>}
       </div>
-      <div style={{
-        fontSize: 32, fontWeight: 800, letterSpacing: "-0.03em",
-        color: color || v.text, lineHeight: 1.1,
-      }}>
-        {value}
-      </div>
+      <div className="db-font-serif db-stat-value">{value}</div>
     </div>
   );
 }
@@ -249,7 +231,7 @@ function FormServicoModal({ servico, onSalvar, onCancelar }) {
   );
 }
 
-function Calendario({ agendamentos, onSelecionarDia, mesOffset = 0 }) {
+function Calendario({ agendamentos, onSelecionarDia, mesOffset = 0, onMudarMes, onIrParaHoje }) {
   const hoje = new Date();
   const dataReferencia = new Date(hoje.getFullYear(), hoje.getMonth() + mesOffset, 1);
   const ano = dataReferencia.getFullYear();
@@ -283,18 +265,19 @@ function Calendario({ agendamentos, onSelecionarDia, mesOffset = 0 }) {
 
   return (
     <div>
-      <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 16, letterSpacing: "-0.015em", textTransform: "capitalize", color: "white" }}>
-        {formatarMesAno(dataReferencia)}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+        <div className="db-font-serif" style={{ fontWeight: 700, fontSize: 19, letterSpacing: "-0.01em", textTransform: "capitalize", color: "white" }}>
+          {formatarMesAno(dataReferencia)}
+        </div>
+        <div className="db-cal-nav">
+          <button className="db-cal-nav-btn" onClick={() => onMudarMes?.(mesOffset - 1)} title="Mês anterior" type="button">‹</button>
+          <button className="db-cal-today-btn" onClick={() => onIrParaHoje?.()} type="button">Hoje</button>
+          <button className="db-cal-nav-btn" onClick={() => onMudarMes?.(mesOffset + 1)} title="Próximo mês" type="button">›</button>
+        </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 8 }}>
         {diasSemana.map((d) => (
-          <div key={d} style={{
-            textAlign: "center", fontWeight: 700, fontSize: 11,
-            color: "var(--text-muted)", paddingBottom: 8,
-            textTransform: "uppercase", letterSpacing: "0.08em",
-          }}>
-            {d}
-          </div>
+          <div key={d} className="db-cal-weekday">{d}</div>
         ))}
         {grid.map((cell, idx) => {
           if (!cell.diaNum) return <div key={idx} style={{ height: 46 }} />;
@@ -303,33 +286,13 @@ function Calendario({ agendamentos, onSelecionarDia, mesOffset = 0 }) {
           return (
             <button
               key={idx}
+              type="button"
               onClick={() => onSelecionarDia(cell.data)}
-              style={{
-                height: 46, borderRadius: 10,
-                cursor: "pointer", fontSize: 14, fontWeight: isHoje ? 800 : 600,
-                border: tem
-                  ? "1px solid var(--gold-border)"
-                  : isHoje
-                  ? "1px solid var(--accent-border)"
-                  : "1px solid var(--border-default)",
-                background: tem
-                  ? "var(--gold-soft)"
-                  : isHoje
-                  ? "var(--accent-soft)"
-                  : "rgba(255,255,255,0.02)",
-                color: tem ? "var(--gold)" : isHoje ? "var(--accent)" : "var(--text-secondary)",
-                transition: "all var(--duration-fast) var(--ease-out)",
-                position: "relative",
-              }}
-              onMouseEnter={e => { if (!tem && !isHoje) { e.currentTarget.style.background = "var(--bg-card-hover)"; e.currentTarget.style.color = "white"; } }}
-              onMouseLeave={e => { if (!tem && !isHoje) { e.currentTarget.style.background = "rgba(255,255,255,0.02)"; e.currentTarget.style.color = "var(--text-secondary)"; } }}
+              className={`db-cal-day${tem ? " has-agenda" : ""}${isHoje ? " is-today" : ""}`}
               title={tem ? "Possui agendamentos" : "Sem agendamentos"}
             >
               {cell.diaNum}
-              {tem && <div style={{
-                position: "absolute", bottom: 6, left: "50%", transform: "translateX(-50%)",
-                width: 5, height: 5, borderRadius: "50%", background: "var(--gold)",
-              }} />}
+              {tem && <span className="db-cal-dot" />}
             </button>
           );
         })}
@@ -380,6 +343,7 @@ export default function Dashboard() {
   // Filtros de Busca
   const [buscaAgendamento, setBuscaAgendamento] = useState("");
   const [buscaCliente, setBuscaCliente] = useState("");
+  const [mesOffsetCalendario, setMesOffsetCalendario] = useState(0);
 
   useEffect(() => {
     if (!slug) navigate("/login", { replace: true });
@@ -542,64 +506,40 @@ export default function Dashboard() {
 
         {/* ── Sidebar ── */}
         <aside style={{ position: "sticky", top: 32 }}>
-          <div style={{
-            borderRadius: 20,
-            background: "rgba(13,13,16,0.95)",
-            border: "1px solid var(--border-default)",
-            boxShadow: "var(--shadow-lg)",
-            overflow: "hidden",
-          }}>
-            <div style={{ height: 3, background: "linear-gradient(90deg, var(--accent), var(--gold))" }} />
+          <div className="db-sidebar">
+            <div className="db-sidebar-bar" />
 
-            <div style={{ padding: "24px 20px" }}>
-              {/* Brand */}
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28, paddingBottom: 20, borderBottom: "1px solid var(--border-subtle)" }}>
-                <div style={{
-                  width: 44, height: 44, borderRadius: 12, flexShrink: 0,
-                  background: "linear-gradient(135deg, var(--accent), #c9213f)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 18, boxShadow: "0 4px 12px rgba(232,40,74,0.3)"
-                }}>✂</div>
-                <div style={{ overflow: "hidden" }}>
-                  <div style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                    Barbearia
-                  </div>
-                  <div style={{ fontWeight: 800, fontSize: 15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "white" }}>
-                    {barbearia?.nome || "—"}
-                  </div>
-                </div>
+            {/* Brand */}
+            <div className="db-brand">
+              <div className="db-brand-badge">✂</div>
+              <div style={{ overflow: "hidden" }}>
+                <div className="db-brand-eyebrow">Barbearia</div>
+                <div className="db-font-serif db-brand-name">{barbearia?.nome || "—"}</div>
               </div>
+            </div>
 
-              {/* Nav */}
-              <div style={{ display: "grid", gap: 4 }}>
-                {ABAS.map((item) => {
-                  const active = aba === item.chave;
-                  return (
-                    <button
-                      key={item.chave}
-                      onClick={() => setAba(item.chave)}
-                      style={{
-                        width: "100%", textAlign: "left",
-                        padding: "11px 14px", borderRadius: 10,
-                        border: `1px solid ${active ? "var(--accent-border)" : "transparent"}`,
-                        background: active ? "var(--accent-soft)" : "transparent",
-                        color: active ? "var(--accent)" : "var(--text-secondary)",
-                        cursor: "pointer", fontWeight: active ? 700 : 500,
-                        fontSize: 14, transition: "all var(--duration-fast) var(--ease-out)",
-                        display: "flex", alignItems: "center", gap: 10, fontFamily: "inherit",
-                      }}
-                      onMouseEnter={e => { if (!active) { e.currentTarget.style.background = "var(--bg-elevated)"; e.currentTarget.style.color = "white"; } }}
-                      onMouseLeave={e => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; } }}
-                    >
-                      <span style={{ fontSize: 14, opacity: active ? 1 : 0.6, width: 18, textAlign: "center" }}>{item.icon}</span>
-                      {item.label}
-                    </button>
-                  );
-                })}
-              </div>
+            {/* Nav */}
+            <nav className="db-nav">
+              <div className="db-nav-caption">Menu</div>
+              {ABAS.map((item) => {
+                const active = aba === item.chave;
+                return (
+                  <button
+                    key={item.chave}
+                    type="button"
+                    onClick={() => setAba(item.chave)}
+                    className={`db-nav-item${active ? " active" : ""}`}
+                  >
+                    <span className="db-nav-icon">{item.icon}</span>
+                    {item.label}
+                  </button>
+                );
+              })}
+            </nav>
 
-              {/* Logout */}
-              <div style={{ marginTop: 28, paddingTop: 20, borderTop: "1px solid var(--border-subtle)" }}>
+            {/* Logout */}
+            <div style={{ padding: "0 20px 20px" }}>
+              <div style={{ paddingTop: 16, borderTop: "1px solid var(--border-subtle)" }}>
                 <button onClick={logout} style={{
                   width: "100%", padding: "11px 14px", borderRadius: 10,
                   border: "1px solid var(--danger-border)", background: "var(--danger-soft)",
@@ -621,18 +561,11 @@ export default function Dashboard() {
         <main style={{ display: "grid", gap: 24, animation: "fadeSlideUp 0.35s var(--ease-out) forwards" }}>
 
           {/* Header */}
-          <header style={{
-            padding: "20px 24px",
-            borderRadius: 20,
-            background: "rgba(13,13,16,0.95)", border: "1px solid var(--border-default)",
-            boxShadow: "var(--shadow-sm)",
-          }}>
+          <header className="db-header">
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
               <div>
-                <div style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>
-                  Painel Administrativo
-                </div>
-                <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", margin: 0, color: "white" }}>
+                <div className="db-header-eyebrow">Painel Administrativo</div>
+                <h1 className="db-font-serif db-header-title">
                   {ABAS.find(a => a.chave === aba)?.label}
                 </h1>
               </div>
@@ -679,19 +612,10 @@ export default function Dashboard() {
                 <StatCard label="Dias com agenda" value={metrics.diasComAgendamentos} icon="▦" />
               </section>
 
-              <div style={{ 
-                padding: "24px", 
-                borderRadius: 20, 
-                background: "var(--gold-soft)", 
-                border: "1px solid var(--gold-border)", 
-                display: "flex", 
-                alignItems: "center", 
-                justifyContent: "space-between",
-                boxShadow: "0 4px 20px rgba(212,168,67,0.05)"
-              }}>
+              <div className="db-plaque">
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-secondary)", marginBottom: 6 }}>Faturamento Total (Concluídos)</div>
-                  <div style={{ fontSize: 36, fontWeight: 800, letterSpacing: "-0.04em", color: "var(--gold)", lineHeight: 1.1 }}>
+                  <div className="db-plaque-label">Faturamento Total (Concluídos)</div>
+                  <div className="db-font-serif db-plaque-value">
                     R$ {metrics.faturamento.toFixed(2).replace(".", ",")}
                   </div>
                 </div>
@@ -702,12 +626,9 @@ export default function Dashboard() {
 
           {/* ─ Agendamentos ─ */}
           {aba === "agendamentos" && (
-            <div style={{
-              borderRadius: 20, background: "rgba(13,13,16,0.95)",
-              border: "1px solid var(--border-default)", overflow: "hidden",
-            }}>
-              <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-subtle)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-                <h2 style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.015em", margin: 0 }}>Lista de Agendamentos</h2>
+            <div className="db-card">
+              <div className="db-card-head">
+                <h2 className="db-font-serif db-card-title">Lista de Agendamentos</h2>
                 
                 {/* Filtro de Busca */}
                 <input
@@ -766,13 +687,10 @@ export default function Dashboard() {
 
           {/* ─ Clientes ─ */}
           {aba === "clientes" && (
-            <div style={{
-              borderRadius: 20, background: "rgba(13,13,16,0.95)",
-              border: "1px solid var(--border-default)", overflow: "hidden",
-            }}>
-              <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-subtle)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+            <div className="db-card">
+              <div className="db-card-head">
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <h2 style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.015em", margin: 0 }}>Nossos Clientes</h2>
+                  <h2 className="db-font-serif db-card-title">Nossos Clientes</h2>
                   <span style={{ fontSize: 11, color: "var(--text-muted)", background: "rgba(255,255,255,0.03)", padding: "3px 8px", borderRadius: 8, border: "1px solid var(--border-subtle)", fontWeight: 700 }}>
                     {clientes.length} total
                   </span>
@@ -836,7 +754,7 @@ export default function Dashboard() {
             <div style={{ display: "grid", gap: 20 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
                 <div>
-                  <h2 style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.015em", margin: 0 }}>Serviços Oferecidos</h2>
+                  <h2 className="db-font-serif" style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-0.01em", margin: 0 }}>Serviços Oferecidos</h2>
                   <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 4 }}>
                     Gerencie os serviços oferecidos e seus respectivos valores e durações.
                   </p>
@@ -927,12 +845,9 @@ export default function Dashboard() {
 
           {/* ─ Calendário ─ */}
           {aba === "calendario" && (
-            <div style={{
-              borderRadius: 20, background: "rgba(13,13,16,0.95)",
-              border: "1px solid var(--border-default)", padding: "24px",
-            }}>
+            <div className="db-card" style={{ padding: "24px" }}>
               <div style={{ marginBottom: 20 }}>
-                <h2 style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.015em", marginBottom: 6, color: "white" }}>Calendário Geral</h2>
+                <h2 className="db-font-serif" style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.01em", marginBottom: 6, color: "white" }}>Calendário Geral</h2>
                 <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
                   Os dias destacados em dourado possuem agendamentos ativos. Clique sobre qualquer dia para visualizar os detalhes.
                 </p>
@@ -940,6 +855,9 @@ export default function Dashboard() {
               <Calendario
                 agendamentos={agendamentos}
                 onSelecionarDia={(dataISO) => setModalDia({ aberto: true, data: dataISO })}
+                mesOffset={mesOffsetCalendario}
+                onMudarMes={setMesOffsetCalendario}
+                onIrParaHoje={() => setMesOffsetCalendario(0)}
               />
             </div>
           )}
