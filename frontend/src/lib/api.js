@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/Barbeariav2/backend/api`;
+const BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/AgendasBarber/backend/api`;
 
 
 function getToken() {

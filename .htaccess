@@ -3,7 +3,7 @@ DirectoryIndex frontend/dist/index.html
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  RewriteBase /Barbeariav2/
+  RewriteBase /AgendasBarber/
 
   # Se é arquivo ou diretório real, serve normalmente
   RewriteCond %{REQUEST_FILENAME} -f [OR]

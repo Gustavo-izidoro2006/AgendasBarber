@@ -18,7 +18,7 @@ export default function Sidebar({ aberta, onToggle }) {
   const [copiado, setCopiado] = useState(false);
 
   const slug = barbearia?.slug || "";
-  const publicLink = `${window.location.origin}/Barbeariav2/${slug}`;
+  const publicLink = `${window.location.origin}/AgendasBarber/${slug}`;
 
   const activeKey = (() => {
     const parts = location.pathname.split("/").filter(Boolean);

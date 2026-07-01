@@ -22,6 +22,10 @@ if (!$barbeariaId || !is_array($horarios)) {
 
 try {
     $pdo  = getDB();
+    
+    // Desativa todos os horários da barbearia antes de salvar para desmarcar os dias não enviados
+    $pdo->prepare("UPDATE horarios_atendimento SET ativo = 0 WHERE barbearia_id = ?")->execute([$barbeariaId]);
+
     $sql  = "INSERT INTO horarios_atendimento (id, barbearia_id, dia_semana, abertura, fechamento, ativo)
              VALUES (?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE abertura = VALUES(abertura), fechamento = VALUES(fechamento), ativo = VALUES(ativo)";

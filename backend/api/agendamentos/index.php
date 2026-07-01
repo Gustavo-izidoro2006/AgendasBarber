@@ -37,7 +37,9 @@ try {
     if ($data) {
         // Retorna apenas os horários ocupados (para página pública)
         $stmt = $pdo->prepare(
-            "SELECT a.*, c.nome AS cliente_nome, s.nome AS servico_nome
+            "SELECT a.id, a.barbearia_id, a.cliente_id, a.servico_id,
+                    a.data_agendamento AS data, a.horario, a.status, a.observacoes, a.criado_em,
+                    c.nome AS cliente, s.nome AS servico, s.valor AS preco
              FROM agendamentos a
              LEFT JOIN clientes_barbearia c ON c.id = a.cliente_id
              LEFT JOIN servicos s ON s.id = a.servico_id
@@ -47,7 +49,9 @@ try {
         $stmt->execute([$barbeariaId, $data]);
     } else {
         $stmt = $pdo->prepare(
-            "SELECT a.*, c.nome AS cliente_nome, s.nome AS servico_nome
+            "SELECT a.id, a.barbearia_id, a.cliente_id, a.servico_id,
+                    a.data_agendamento AS data, a.horario, a.status, a.observacoes, a.criado_em,
+                    c.nome AS cliente, s.nome AS servico, s.valor AS preco
              FROM agendamentos a
              LEFT JOIN clientes_barbearia c ON c.id = a.cliente_id
              LEFT JOIN servicos s ON s.id = a.servico_id

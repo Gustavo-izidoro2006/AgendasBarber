@@ -14,7 +14,7 @@ export default defineConfig({
       },
     },
   },
-  // Importante: quando o site é servido em subpasta (ex: /Barbeariav2/frontend/dist),
+  // Importante: quando o site é servido em subpasta (ex: /AgendasBarber/frontend/dist),
   // o build precisa de base relativo para os assets carregarem.
   base: './',
 })

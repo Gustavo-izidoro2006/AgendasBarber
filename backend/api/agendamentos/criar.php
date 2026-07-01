@@ -35,11 +35,19 @@ try {
     $pdo = getDB();
 
     // Verifica conflito de horário
-    $chk = $pdo->prepare(
-        "SELECT id FROM agendamentos
-         WHERE barbearia_id = ? AND data_agendamento = ? AND horario = ? AND status != 'cancelado'"
-    );
-    $chk->execute([$barbeariaId, $dataAgendamento, $horario]);
+    if ($clienteId) {
+        $chk = $pdo->prepare(
+            "SELECT id FROM agendamentos
+             WHERE barbearia_id = ? AND data_agendamento = ? AND horario = ? AND status != 'cancelado' AND (cliente_id IS NULL OR cliente_id != ?)"
+        );
+        $chk->execute([$barbeariaId, $dataAgendamento, $horario, $clienteId]);
+    } else {
+        $chk = $pdo->prepare(
+            "SELECT id FROM agendamentos
+             WHERE barbearia_id = ? AND data_agendamento = ? AND horario = ? AND status != 'cancelado'"
+        );
+        $chk->execute([$barbeariaId, $dataAgendamento, $horario]);
+    }
     if ($chk->fetch()) {
         http_response_code(409);
         echo json_encode(['success' => false, 'error' => 'Horário já ocupado']);
